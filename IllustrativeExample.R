@@ -1,4 +1,5 @@
 ### Synthetic control, matching and bias
+### VERY INTUITIVE EXAMPLE
 ### Jeremy L Hour
 ### 8 july 2016
 

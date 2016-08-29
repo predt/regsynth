@@ -3,8 +3,8 @@
 ### 11 juillet 2016
 ### Edited: 22 juillet 2016
 
-setwd("E:/New_project/SyntheticControlMatching/code")
-setwd("/Volumes/USB_KEY/New_project/SyntheticControlMatching/code") 
+setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
+
 
 rm(list=ls())
 set.seed(14021989)
@@ -266,7 +266,7 @@ ggplot(tau, aes(x=CATT, fill=as.factor(d))) +
   theme(plot.title = element_text(lineheight=.8, face="bold")) +
   scale_fill_discrete(name="Group",
                       breaks=c("1", "0"),
-                      labels=c("Treatment","Control")) +
+                      labels=c("Treated","Control")) +
   theme(legend.position="bottom")
 
 # Implement test based on ranks

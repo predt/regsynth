@@ -3,8 +3,8 @@
 ### Jeremy L Hour
 ### 11 Juillet 2016
 
-setwd("E:/New_project/SyntheticControlMatching/code")
-setwd("/Volumes/USB_KEY/New_project/SyntheticControlMatching/code")
+setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
+
 
 
 
@@ -28,7 +28,7 @@ source("functions/TZero.R")
 source("functions/synthObj.R")
 
 ### Loading data
-data <- data.frame(t(read.table("/Volumes/USB_KEY/BEAST/datasets/MLAB_data.txt")))
+data <- data.frame(t(read.table("R:/Simulations/BEAST/datasets/MLAB_data.txt")))
 
 Names <- c("State_ID","Income","RetailPrice", "Young", "BeerCons","Smoking1988", "Smoking1980","Smoking1975",
            mapply(function(x) paste("SmokingCons",x,sep=""),1970:2000))
