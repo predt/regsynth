@@ -23,6 +23,7 @@ source("functions/wsoll1.R")
 source("functions/matchDGP.R")
 source("functions/wATT.R")
 source("functions/matching.R")
+source("functions/matchest.R")
 source("functions/regsynth.R")
 source("functions/regsynthpath.R")
 source("functions/TZero.R")
@@ -31,92 +32,82 @@ source("functions/synthObj.R")
 
 ### MC XP
 lambda = seq(0,2,.01)
-K = 5 # number of folds for optimal penalty level
-R <- 100
-Results <- matrix(ncol=5, nrow=R)
+K = 2 # number of folds for optimal penalty level
+R = 1000
+Results <- matrix(ncol=6, nrow=R)
 t_start <- Sys.time()
 pb <- txtProgressBar(style = 3)
 
 for(r in 1:R){
-  ### 1. Generate data
+  ### 0. Generate data
   data = matchDGP(n=50,p=5,Ry=.5,Rd=.2)
-  X = data$X
-  y = data$y
-  d = data$d
+  X = data$X; y = data$y; d = data$d
   
-  X0 = t(X[d==0,])
-  X1 = t(X[d==1,])
-  V = diag(ncol(X))
-  Y0 = y[d==0]
-  n0 = sum(1-d)
+  X0 = t(X[d==0,]); X1 = t(X[d==1,]); V = diag(ncol(X))
+  Y0 = y[d==0]; Y1 = y[d==1]; n0 = sum(1-d)
   
-  ### 2. SC on the mean
+  ### 1. Synthetic Control on mean of treated
   M = matrix(apply(X1,1,mean), ncol=1)
-  sol_mSC = wsol(X0,M,V)
+  AggSC = wATT(y,d,wsol(X0,M,V))
   
-  ### 3. 1NN matching 
-  cf = vector(length = sum(d))
-  for(i in 1:sum(d)){
-    sol = matching(X0,X1[,i],V,m=1)
-    cf[i] = t(y[d==0])%*%sol
-  }
-  attm1 <- mean(y[d==1] - cf)
+  ### 2. 1NN matching 
+  NN1 = matchest(d,X,y,V,1)
   
-  ### 4. 5NN matching
-  cf = vector(length = sum(d))
-  for(i in 1:sum(d)){
-    sol = matching(X0,X1[,i],V,m=5)
-    cf[i] = t(y[d==0])%*%sol
-  }
-  attm5 <- mean(y[d==1] - cf)
+  ### 3. 5NN matching
+  NN5 = matchest(d,X,y,V,5)
   
-  ### 5. Regularized SC, fixed lambda
-  cf = vector(length = sum(d))
-  for(i in 1:sum(d)){
-    sol = wsoll1(X0,X1[,i],V,.1)
-    cf[i] = t(y[d==0])%*%sol
-  }
-  RegSC_fixed <- mean(y[d==1] - cf)
+  ### 4. Regularized Synthetic Control, fixed lambda
+  sol = regsynth(X0,X1,Y0,Y1,V,.1)
+  RSC.fixed = sol$ATT
   
-  ### 6. Regularized SC, optimized lambda
-  uu=0
+  ### 5. Regularized SC, optimized lambda
+  uu=0 # reshuffle groups until no empty group
   while(uu==0){
     allocation = sample(1:K,n0,replace=T)
     uu=min(mapply(function(x) sum(allocation==x),1:K))
   }
   
-  ATTcv = matrix(nrow=K, ncol=length(lambda))
+  print("*** PROGRESS ***")
+  print(100*r/R)
+  
+  RMSEcv = matrix(nrow=K, ncol=length(lambda))
+  biascv = matrix(nrow=K, ncol=length(lambda))
   for(k in 1:K){
     X1k = as.matrix(X0[,allocation==k])
     X0k = as.matrix(X0[,allocation!=k])
     Y1k = Y0[allocation==k]
     Y0k = Y0[allocation!=k]
     solpath = regsynthpath(X0k,X1k,Y0k,Y1k,V,lambda)
-    ATTcv[k,] = apply(solpath$CATT^2,1,sum)
+    RMSEcv[k,] = apply(solpath$CATT^2,1,sum)
+    biascv[k,] = apply(solpath$CATT,1,sum)
   }
   
-  curve = apply(ATTcv,2,sum)/n0
-  lambda.opt = lambda[which(curve==min(curve))]
+  # The one that optimizes RMSE
+  curve.RMSE = apply(RMSEcv,2,sum)/n0
+  lambda.opt.RMSE = lambda[which(curve.RMSE==min(curve.RMSE))]
+  sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.RMSE)
+  RSC.opt.RMSE = sol$ATT
   
-  cf = vector(length = sum(d))
-  for(i in 1:sum(d)){
-    sol = wsoll1(X0,X1[,i],V,lambda.opt)
-    cf[i] = t(y[d==0])%*%sol
-  }
-  RegSC_opt <- mean(y[d==1] - cf)
+  # The one that optimizes bias
+  curve.bias = abs(apply(biascv,2,sum)/n0)
+  lambda.opt.bias = lambda[which(curve.bias==min(curve.bias))]
+  sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.bias)
+  RSC.opt.bias = sol$ATT
   
   
-  ### 7. Third step: ATT estimation
-  Results[r,] <- c(wATT(y,d,sol_mSC),
-                   attm1,
-                   attm5,
-                   RegSC_fixed,
-                   RegSC_opt)
+  ### 6. Third step: ATT estimation
+  Results[r,] <- c(AggSC,
+                   NN1$ATT,
+                   NN5$ATT,
+                   RSC.fixed,
+                   RSC.opt.RMSE,
+                   RSC.opt.bias)
   setTxtProgressBar(pb, r/R)
 }
 
 close(pb)
 print(Sys.time()-t_start)
+
 
 # Post-simulation treatment
 
@@ -148,12 +139,14 @@ get.plot(data_res,1,"Aggregate Synthetic Control", msd)
 get.plot(data_res,2,"1NN Matching", msd)
 get.plot(data_res,3,"5NN Matching", msd)
 get.plot(data_res,4,"Reg SC fixed lambda", msd)
-get.plot(data_res,5,"Reg SC opt lambda", msd)
+get.plot(data_res,5,"Reg SC opt lambda RMSE", msd)
+get.plot(data_res,6,"Reg SC opt lambda bias", msd)
+
 
 ### Compute bias and RMSE
 StatDisplay <- data.frame()
-StatDisplay[1:5,"bias"] <- apply(Results,2,mean)
-StatDisplay[1:5,"RMSE"]  <- sqrt(apply(Results^2,2,mean))
-StatDisplay[1:5,"ShapiroTest"]  <- apply(Results,2, function(x) shapiro.test(x)$p.value)
-row.names(StatDisplay) <- c("AggregateSC","1nnMatching","5nnMatching","RegSCfixed","RegSCopt")
+StatDisplay[1:6,"bias"] <- apply(Results,2,mean)
+StatDisplay[1:6,"RMSE"]  <- sqrt(apply(Results^2,2,mean))
+StatDisplay[1:6,"ShapiroTest"]  <- apply(Results,2, function(x) shapiro.test(x)$p.value)
+row.names(StatDisplay) <- c("AggregateSC","1nnMatching","5nnMatching","RegSCfixed","RegSCopt","RegSCoptbias")
 print(StatDisplay)

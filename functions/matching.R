@@ -1,5 +1,8 @@
 #' Matching function
 #' 
+#' Gives the weights for each treated units: 1/m for the m closest to X1 
+#' and 0 for the others.
+#' 
 #' @param X0 is a p x n0 matrix
 #' @param X1 is a p x 1 vector
 #' @param V is a p x p matrix of weights
