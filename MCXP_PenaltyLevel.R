@@ -1,11 +1,12 @@
 ### Monte Carlo with selected penalty level
 ### Jeremy L Hour
 ### 29 aout 2016
+### Edite 8 septembre 2016
 
 setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 
 rm(list=ls())
-set.seed(12071990)
+
 
 ### 0. Settings
 
@@ -31,10 +32,11 @@ source("functions/synthObj.R")
 
 
 ### MC XP
+set.seed(12071990)
 lambda = seq(0,2,.01)
-K = 2 # number of folds for optimal penalty level
+K = 5 # number of folds for optimal penalty level
 R = 1000
-Results <- matrix(ncol=6, nrow=R)
+Results <- matrix(ncol=7, nrow=R)
 t_start <- Sys.time()
 pb <- txtProgressBar(style = 3)
 
@@ -70,38 +72,38 @@ for(r in 1:R){
   print("*** PROGRESS ***")
   print(100*r/R)
   
-  RMSEcv = matrix(nrow=K, ncol=length(lambda))
-  biascv = matrix(nrow=K, ncol=length(lambda))
+  keeptau = matrix(nrow=length(lambda), ncol=length(Y0))
   for(k in 1:K){
     X1k = as.matrix(X0[,allocation==k])
     X0k = as.matrix(X0[,allocation!=k])
     Y1k = Y0[allocation==k]
     Y0k = Y0[allocation!=k]
     solpath = regsynthpath(X0k,X1k,Y0k,Y1k,V,lambda)
-    RMSEcv[k,] = apply(solpath$CATT^2,1,sum)
-    biascv[k,] = apply(solpath$CATT,1,sum)
+    keeptau[,allocation==k] = solpath$CATT
   }
   
   # The one that optimizes RMSE
-  curve.RMSE = apply(RMSEcv,2,sum)/n0
+  curve.RMSE = apply(keeptau^2,1,sum)/n0
   lambda.opt.RMSE = lambda[which(curve.RMSE==min(curve.RMSE))]
   sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.RMSE)
   RSC.opt.RMSE = sol$ATT
   
   # The one that optimizes bias
-  curve.bias = abs(apply(biascv,2,sum)/n0)
+  curve.bias = abs(apply(keeptau,1,sum)/n0)
   lambda.opt.bias = lambda[which(curve.bias==min(curve.bias))]
   sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.bias)
   RSC.opt.bias = sol$ATT
   
+  # The one that optimizes bias + variance
+  curve.crit = curve.bias + apply(keeptau,1,sd)
+  lambda.opt.crit = lambda[which(curve.crit==min(curve.crit))]
+  sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.crit)
+  RSC.opt.crit = sol$ATT
+  
   
   ### 6. Third step: ATT estimation
-  Results[r,] <- c(AggSC,
-                   NN1$ATT,
-                   NN5$ATT,
-                   RSC.fixed,
-                   RSC.opt.RMSE,
-                   RSC.opt.bias)
+  Results[r,] <- c(AggSC,NN1$ATT,NN5$ATT,
+                   RSC.fixed,RSC.opt.RMSE,RSC.opt.bias,RSC.opt.crit)
   setTxtProgressBar(pb, r/R)
 }
 
@@ -112,14 +114,14 @@ print(Sys.time()-t_start)
 # Post-simulation treatment
 
 # Draw the charts
-id <- c(mapply(function(x) rep(x,R),1:6))
+id <- c(mapply(function(x) rep(x,R),1:7))
 val <- c(Results)
 data_res <- data.frame(val = val, model = id)
 
 M <- max(abs(quantile(Results,.01)),abs(quantile(Results,.99)))
 lb <- -1.1*M
 ub <- 1.1*M
-msd <- max(mapply(function(x)  sd(subset(data_res,model==x)[,1]),1:6))
+msd <- max(mapply(function(x)  sd(subset(data_res,model==x)[,1]),1:7))
 
 
 ### Function for plot
@@ -138,15 +140,16 @@ get.plot <- function(data,modelS,title="A Title",sdBCH){
 get.plot(data_res,1,"Aggregate Synthetic Control", msd)
 get.plot(data_res,2,"1NN Matching", msd)
 get.plot(data_res,3,"5NN Matching", msd)
-get.plot(data_res,4,"Reg SC fixed lambda", msd)
-get.plot(data_res,5,"Reg SC opt lambda RMSE", msd)
-get.plot(data_res,6,"Reg SC opt lambda bias", msd)
-
+get.plot(data_res,4,expression(paste("Penalized Synthetic Control, fixed ",lambda)), msd)
+get.plot(data_res,5,expression(paste("Penalized Synthetic Control, RMSE-minim.",lambda)), msd)
+get.plot(data_res,6,expression(paste("Penalized Synthetic Control, bias-minim.",lambda)), msd)
+get.plot(data_res,7,expression(paste("Penalized Synthetic Control, crit-minim.",lambda)), msd)
 
 ### Compute bias and RMSE
 StatDisplay <- data.frame()
-StatDisplay[1:6,"bias"] <- apply(Results,2,mean)
-StatDisplay[1:6,"RMSE"]  <- sqrt(apply(Results^2,2,mean))
-StatDisplay[1:6,"ShapiroTest"]  <- apply(Results,2, function(x) shapiro.test(x)$p.value)
-row.names(StatDisplay) <- c("AggregateSC","1nnMatching","5nnMatching","RegSCfixed","RegSCopt","RegSCoptbias")
+StatDisplay[1:7,"bias"] <- apply(Results,2,mean)
+StatDisplay[1:7,"RMSE"]  <- sqrt(apply(Results^2,2,mean))
+StatDisplay[1:7,"ShapiroTest"]  <- apply(Results,2, function(x) shapiro.test(x)$p.value)
+row.names(StatDisplay) <- c("Aggregate Synth","1NN Matching","5NN Matching","Penalized Synth fixed",
+                            "Penalized Synth RMSE opt","Penalized Synth bias opt","Penalized Synth crit opt")
 print(StatDisplay)

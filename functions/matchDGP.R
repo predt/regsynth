@@ -1,11 +1,12 @@
 #' Data Generating process for the example
 #' 
 #' @param n number of observations
-#' 
-#' 
+#' @param p is the number of covariates
+#' @param rho parametrizes the covariance between the covariates
+#' @param a is the treatment effect value
 #' 
 
-matchDGP <- function(n=20,p=2,Ry=.5,Rd=.2,rho=.5){
+matchDGP <- function(n=20,p=2,Ry=.5,Rd=.2,rho=.5,a=0){
   library("MASS")
   
   ### Covariate variance matrix
@@ -40,9 +41,6 @@ matchDGP <- function(n=20,p=2,Ry=.5,Rd=.2,rho=.5){
   
   X <- mvrnorm(n = n, mu=rep(0,p), Sigma)
   d <- as.numeric(runif(n) < pnorm(X%*%gamma))
-  
-  ### Treatment effect
-  a <- 0
   
   y <- a*d + exp(-X%*%b) + rnorm(n)
   
