@@ -25,7 +25,7 @@ perm.test <- function(d,y,X,V,lambda,R=1000){
   theta.reshuffled = replicate(R, permutation.iter(d,y,X,V,lambda), simplify="vector")
   
   # Compute p-value
-  p.val = (sum(theta.hat < theta.reshuffled)+1)/(R+1)
+  p.val = sum(theta.hat < theta.reshuffled)/R
   
   return(list(p.val=p.val,
               theta.hat=theta.hat,

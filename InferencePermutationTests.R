@@ -45,7 +45,7 @@ print(sol1$ATT)
 # Reshuffle the treatment
 ptest = perm.test(d,y,X,V,.1,R=1000)
 
-p.val = (sum(ptest$theta.hat < ptest$theta.reshuffled)+1)/1001
+p.val = sum(ptest$theta.hat < ptest$theta.reshuffled)/1000
 titer = data.frame(val=ptest$theta.reshuffled)
 
 ggplot(titer, aes(x=val)) + 
@@ -58,7 +58,7 @@ ggplot(titer, aes(x=val)) +
 
 ### 4. A Monte Carlo experiment
 set.seed(12071990)
-R = 1000
+R = 5000
 Results <- matrix(ncol=1, nrow=R)
 t_start <- Sys.time()
 pb <- txtProgressBar(style = 3)
@@ -69,7 +69,7 @@ for(r in 1:R){
   X = data$X; y = data$y; d = data$d; V = diag(ncol(X))
   
   ### Perform test
-  ptest = perm.test(d,y,X,V,.1,R=100)
+  ptest = perm.test(d,y,X,V,.1,R=1000)
   
   ### 6. Third step: ATT estimation
   Results[r,] <- c(ptest$p.val)
