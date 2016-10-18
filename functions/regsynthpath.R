@@ -12,12 +12,12 @@
 #' @param lambda is a vector of l1 penalty levels
 #' @param tol gives the threshold for considering true zeros
 #' 
+#' @seealso \code{\link{regsynth}}
+#' 
 #' @autor Jeremy LHour
 
 regsynthpath <- function(X0,X1,Y0,Y1,V,lambda,tol=1e-6){
-  K = length(lambda)
-  n0 = ncol(X0)
-  n1 = ncol(X1)
+  K = length(lambda); n0 = ncol(X0); n1 = ncol(X1)
   ATT = vector(length = K)
   tau = matrix(nrow=K,ncol=n1)
   Wsol = array(dim=c(K,n1,n0))

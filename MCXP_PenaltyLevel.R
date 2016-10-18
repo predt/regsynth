@@ -1,7 +1,7 @@
 ### Monte Carlo with selected penalty level
 ### Jeremy L Hour
 ### 29 aout 2016
-### Edite 8 septembre 2016
+### Edite 10 septembre 2016
 
 setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 
@@ -33,9 +33,9 @@ source("functions/synthObj.R")
 
 ### MC XP
 set.seed(12071990)
-lambda = seq(0,2,.01)
+lambda = seq(0,2,.01) # set of lambda to be considered for optim
 K = 5 # number of folds for optimal penalty level
-R = 1000
+R = 10
 Results <- matrix(ncol=7, nrow=R)
 t_start <- Sys.time()
 pb <- txtProgressBar(style = 3)
@@ -100,7 +100,7 @@ for(r in 1:R){
   sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.crit)
   RSC.opt.crit = sol$ATT
   
-  
+
   ### 6. Third step: ATT estimation
   Results[r,] <- c(AggSC,NN1$ATT,NN5$ATT,
                    RSC.fixed,RSC.opt.RMSE,RSC.opt.bias,RSC.opt.crit)
@@ -153,3 +153,8 @@ StatDisplay[1:7,"ShapiroTest"]  <- apply(Results,2, function(x) shapiro.test(x)$
 row.names(StatDisplay) <- c("Aggregate Synth","1NN Matching","5NN Matching","Penalized Synth fixed",
                             "Penalized Synth RMSE opt","Penalized Synth bias opt","Penalized Synth crit opt")
 print(StatDisplay)
+
+fileN = paste("simulations/output_n",n,",p",p,".txt",sep="")
+
+print.xtable(xtable(StatDisplay, digits=3),type="latex",file=fileN)
+write(c(paste("Nb. observations:",n),paste("Nb. covariates:",p)), fileN, append=TRUE)

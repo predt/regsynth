@@ -1,16 +1,14 @@
-#' Matching estimator for a whole sample
+#' Oaxaca-Blinder estimator for a whole sample
 #' 
 #' From a sample of treated and control units, computes the weights
 #' for each counterfactual, the individual treatment effects and counterfactuals,
-#' and the Average Treatment on the Treated (ATT). Based on Neirest-Neighbor matching.
+#' and the Average Treatment on the Treated (ATT). Based on Kline (2011).
 #' 
-#' Edited: 12 octobre 2016
+#' Edited: 13 octobre 2016
 #' 
 #' @param d is a vector of dimension n (treatment indicator)
 #' @param X is a n x p matrix
 #' @param y is a vector of dimension n (outcome)
-#' @param V is a p x p matrix of weights
-#' @param m number of neighbors to find
 #' 
 #' @return ATT is the Average Treatment Effect on the Treated over the sample.
 #' @return CATT is the individual treatment effect.
@@ -21,19 +19,13 @@
 #' 
 #' @author Jeremy LHour
 
-matchest <- function(d,X,y,V,m=3){
+OBest <- function(d,X,y){
   
   X0 = t(X[d==0,]); X1 = t(X[d==1,]);
   Y0 = y[d==0]; Y1 = y[d==1]; 
   n1 = sum(d); n0 = sum(1-d);
   
-  Wsol = matrix(nrow=n1,ncol=n0)
-  
-  for(i in 1:n1){
-    sol = matching(X0,X1[,i],V,m=m)
-    Wsol[i,] = sol
-  }
-  
+  Wsol = t(X1) %*% solve(X0 %*% t(X0)) %*% X0
   y0_hat = Wsol%*%Y0
   tau = Y1 - y0_hat
   

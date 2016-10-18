@@ -1,0 +1,22 @@
+% latex table generated in R 3.0.2 by xtable 1.7-4 package
+% Fri Oct 14 20:45:21 2016
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrr}
+  \hline
+ & bias & RMSE & ShapiroTest \\ 
+  \hline
+Aggregate Synth & 0.056 & 0.893 & 0.000 \\ 
+  1NN Matching & 0.176 & 0.911 & 0.000 \\ 
+  5NN Matching & 0.119 & 0.830 & 0.000 \\ 
+  Penalized Synth fixed & 0.033 & 0.840 & 0.000 \\ 
+  Penalized Synth RMSE opt & 0.077 & 0.830 & 0.000 \\ 
+  Penalized Synth bias opt & 0.022 & 0.855 & 0.000 \\ 
+  Penalized Synth crit opt & 0.028 & 0.858 & 0.000 \\ 
+   \hline
+\end{tabular}
+\end{table}
+Nb. observations: 30
+Nb. covariates: 20
+Nb. replications: 1000
+2016-10-14 20:45:21

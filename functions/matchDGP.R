@@ -5,6 +5,7 @@
 #' @param rho parametrizes the covariance between the covariates
 #' @param a is the treatment effect value
 #' 
+#' @autor Jeremy LHour
 
 matchDGP <- function(n=20,p=2,Ry=.5,Rd=.2,rho=.5,a=0){
   library("MASS")
@@ -50,15 +51,4 @@ matchDGP <- function(n=20,p=2,Ry=.5,Rd=.2,rho=.5,a=0){
               b=b,
               g=gamma,
               ATT=sum(d*a)/sum(d)))
-  
-  
-  
-  n <- 20
-  x <- matrix(rexp(2*n), ncol=2)
-  g <- c(.5,-1)
-  logit <- function(x) 1/(1+exp(-x))
-  d <- as.numeric(runif(n) < logit(x %*%g))
-  y <- 10*exp(-diag(x%*%t(x)))
-  data <- data.frame(X=x,
-                     d=d)
 }
