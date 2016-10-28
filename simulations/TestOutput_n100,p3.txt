@@ -1,0 +1,8 @@
+Nb. observations: 100
+Nb. covariates: 3
+Nb. replications: 1000
+Nb. draws: 1000
+Rejection rate .1: 0.185
+Rejection rate .05: 0.114
+Rejection rate .01: 0.035
+2016-10-24 09:22:47

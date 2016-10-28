@@ -1,4 +1,4 @@
-#' Permutation Test for regularized Synthetic Control
+#' Permutation Test for regularized SYnthetic Control
 #' 
 #' Created: 9 septembre 2016
 #' Returns R ATET estimates on reshuffled samples
@@ -15,7 +15,7 @@
 #' 
 #' @author Jeremy LHour
 
-perm.test <- function(d,y,X,V,lambda,R=1000,C=0){
+perm.test.C <- function(d,y,X,V,lambda,R=1000,C=0){
   # Compute ATET on original sample
   X0 = t(X[d==0,]); X1 = t(X[d==1,]);
   Y0 = y[d==0]; Y1 = y[d==1];
@@ -26,7 +26,7 @@ perm.test <- function(d,y,X,V,lambda,R=1000,C=0){
   theta.reshuffled = replicate(R, permutation.iter.C(d,y,X,V,lambda,C), simplify="vector")
   
   # Compute p-value
-  p.val = mean(abs(theta.reshuffled - C) >= abs(theta.obs-C))
+  p.val = mean(abs(theta.reshuffled) > abs(theta.obs))
   
   return(list(p.val=p.val,
               theta.obs=theta.obs,

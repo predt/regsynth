@@ -2,6 +2,7 @@
 ### Inference and permutation tests
 ### Jeremy L Hour
 ### 8 septembre 2016
+### EDIT: 21 octobre 2016
 
 setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 rm(list=ls())
@@ -57,26 +58,48 @@ ggplot(titer, aes(x=val)) +
   
 
 ### 4. A Monte Carlo experiment
-set.seed(12071990)
-R = 5000
-Results <- matrix(ncol=1, nrow=R)
-t_start <- Sys.time()
-pb <- txtProgressBar(style = 3)
 
-for(r in 1:R){
-  ### 0. Generate data
-  data = matchDGP(n=50,p=5,Ry=.5,Rd=.2)
-  X = data$X; y = data$y; d = data$d; V = diag(ncol(X))
+# Set the function
+InferenceMCXP <- function(R=1000,B=1000,n=100,p=50){
+  Results = vector(length=R)
+  t_start = Sys.time()
+  pb = txtProgressBar(style = 3)
   
-  ### Perform test
-  ptest = perm.test(d,y,X,V,.1,R=1000)
+  for(r in 1:R){
+    ### 0. Generate data
+    data = matchDGP(n=n,p=p,Ry=.5,Rd=.2)
+    X = data$X; y = data$y; d = data$d; V = diag(ncol(X))
+    
+    ### Perform test
+    ptest = perm.test(d,y,X,V,.1,R=B)
+    
+    Results[r] = c(ptest$p.val)
+    setTxtProgressBar(pb, r/R)
+  }
   
-  ### 6. Third step: ATT estimation
-  Results[r,] <- c(ptest$p.val)
-  setTxtProgressBar(pb, r/R)
+  close(pb)
+  print(Sys.time()-t_start)
+
+  # Screen print
+  print(paste("Rejection rate at .1 pct:",mean(Results < .1)))
+  print(paste("Rejection rate at .05 pct:",mean(Results < .05)))
+  print(paste("Rejection rate at .01 pct:",mean(Results < .01)))
+  
+  fileN = paste("simulations/TestOutput_n",n,",p",p,".txt",sep="")
+  
+  write(c(paste("Nb. observations:",n),
+          paste("Nb. covariates:",p),
+          paste("Nb. replications:",R),
+          paste("Nb. draws:",B),
+          paste("Rejection rate .1:",mean(Results < .1)),
+          paste("Rejection rate .05:",mean(Results < .05)),
+          paste("Rejection rate .01:",mean(Results < .01)),
+          paste(Sys.time())), fileN, append=TRUE)
 }
 
-close(pb)
-print(Sys.time()-t_start)
-
-sum(Results < .05)/R
+set.seed(12071990)
+for(n_xp in c(30,50,100)){
+  for(p_xp in c(3,10,20)){
+    InferenceMCXP(R=1000,B=1000,n=n_xp,p=p_xp)
+  }
+}
