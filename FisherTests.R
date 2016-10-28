@@ -46,7 +46,6 @@ print(sol1$ATT)
 # Reshuffle the treatment
 ptest = perm.test(d,y,X,V,.1,R=1000)
 
-p.val = sum(ptest$theta.hat < ptest$theta.reshuffled)/1000
 titer = data.frame(val=ptest$theta.reshuffled)
 
 ggplot(titer, aes(x=val)) + 
@@ -60,7 +59,7 @@ ggplot(titer, aes(x=val)) +
 ### 4. A Monte Carlo experiment
 
 # Set the function
-InferenceMCXP <- function(R=1000,B=1000,n=100,p=50){
+InferenceMCXP <- function(R=1000,B=100000,n=100,p=50){
   Results = vector(length=R)
   t_start = Sys.time()
   pb = txtProgressBar(style = 3)

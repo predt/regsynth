@@ -5,7 +5,7 @@
 #' Returns ATT, Conditional ATT, counterfactual and n1 sets of n0 weights from regularized Synthetic Control
 #' 
 #' @param X0 is a p x n0 matrix
-#' @param X1 is a p x n1 vector
+#' @param X1 is a p x n1 matrix
 #' @param Y0 is a n0 x 1 vector
 #' @param Y1 is a n1 x 1 vector
 #' @param V is a p x p matrix of weights

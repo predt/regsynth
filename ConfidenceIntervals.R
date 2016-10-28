@@ -32,7 +32,7 @@ source("functions/conf.interval.R")
 
 ### 0. Generate data
 set.seed(12071990)
-data = matchDGP(n=50,p=10,Ry=.5,Rd=.2,a=0)
+data = matchDGP(n=500,p=10,Ry=.5,Rd=.2,a=0)
 X = data$X; y = data$y; d = data$d
 
 X0 = t(X[d==0,]); X1 = t(X[d==1,]); V = diag(ncol(X))
@@ -44,4 +44,4 @@ theta.obs = sol1$ATT
 print(theta.obs)
 
 # Get confidence interval
-conf.interval(d,y,X,diag(ncol(X)),lambda=.1,B=250000,alpha=.05)
+conf.interval(d,y,X,diag(ncol(X)),lambda=.1,B=2500,alpha=.05)

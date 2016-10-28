@@ -38,6 +38,6 @@ K = 5 # number of folds for optimal penalty level
 
 for(n_xp in c(30,50,100)){
   for(p_xp in c(3,10,20)){
-    MCXP_setup(R=1000,n=n_xp,p=p_xp)
+    MCXP_setup(R=10000,n=n_xp,p=p_xp)
   }
 }

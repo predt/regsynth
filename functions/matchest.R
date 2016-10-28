@@ -4,11 +4,12 @@
 #' for each counterfactual, the individual treatment effects and counterfactuals,
 #' and the Average Treatment on the Treated (ATT). Based on Neirest-Neighbor matching.
 #' 
-#' Edited: 12 octobre 2016
+#' Edited: 28 octobre 2016
 #' 
-#' @param d is a vector of dimension n (treatment indicator)
-#' @param X is a n x p matrix
-#' @param y is a vector of dimension n (outcome)
+#' @param X0 is a p x n0 matrix
+#' @param X1 is a p x n1 matrix
+#' @param Y0 is a n0 x 1 vector
+#' @param Y1 is a n1 x 1 vector
 #' @param V is a p x p matrix of weights
 #' @param m number of neighbors to find
 #' 
@@ -17,15 +18,12 @@
 #' @return Wsol is the n1 x n0 matrix of weights to compute counterfactual.
 #' @return y0_hat is the individual counterfactual for each treated unit.
 #' 
-#' @seealso \code{\link{matching}} for the computation of the mathing weights.
+#' @seealso \code{\link{matching}} for the computation of the matching weights.
 #' 
 #' @author Jeremy LHour
 
-matchest <- function(d,X,y,V,m=3){
-  
-  X0 = t(X[d==0,]); X1 = t(X[d==1,]);
-  Y0 = y[d==0]; Y1 = y[d==1]; 
-  n1 = sum(d); n0 = sum(1-d);
+matchest <- function(X0,X1,Y0,Y1,V,m=3){ 
+  n1 = ncol(X1); n0 = ncol(X0);
   
   Wsol = matrix(nrow=n1,ncol=n0)
   

@@ -27,6 +27,7 @@ perm.test <- function(d,y,X,V,lambda,R=1000,C=0){
   
   # Compute p-value
   p.val = mean(abs(theta.reshuffled - C) >= abs(theta.obs-C))
+  print(paste("P-value: ",p.val))
   
   return(list(p.val=p.val,
               theta.obs=theta.obs,
