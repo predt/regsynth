@@ -1,7 +1,6 @@
 ### Sparse Synthetic Control on Lalonde
 
-setwd("E:/New_project/SyntheticControlMatching/code")
-
+setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 rm(list=ls())
 set.seed(3101990)
 

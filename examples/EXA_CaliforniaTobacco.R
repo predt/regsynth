@@ -1,4 +1,4 @@
-### EXAMPLE 1: California Tobacco COnsumption
+### EXAMPLE 1: California Tobacco Consumption
 ### Sparse Synthetic Control
 ### Jeremy L Hour
 ### 11 Juillet 2016

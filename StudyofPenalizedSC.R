@@ -28,6 +28,7 @@ source("functions/TZero.R")
 source("functions/synthObj.R")
 source("functions/regsynth.R")
 source("functions/regsynthpath.R")
+source("functions/lambda.max.R")
 
 ### Generate data
 data = matchDGP(n=200,p=5,Ry=.5,Rd=.2)
@@ -184,89 +185,77 @@ matplot(lambda,cbind(loss_hat,dp2), type="l",
 #######################
 #######################
 
-lambda.obj <- function(lambda,X0,X1,V,solNN){
-  sol = wsoll1(X0,X1,V,lambda)
-  sol = TZero(sol)
-}
+### Last edited = 3/11/2016
 
-lambda.max <- function(X0,X1,V){
-  # Find the NN
-  n = ncol(X0)
-  Delta = matrix(t(X1)%*%V%*%X1, nrow=n, ncol=1) - 2*t(X0)%*%V%*%X1 + diag(t(X0)%*%V%*%X0)
-  solNN = vector(0,length=n)
-  jnn = which(Delta == min(Delta))
-  solNN[jnn] = 1
-}
+### Generate data
+set.seed(21101980)
+data = matchDGP(n=50,p=5,Ry=.5,Rd=.2)
+X = data$X; y = data$y; d = data$d
 
+X0 = t(X[d==0,]); X1 = t(X[d==1,]); V = diag(ncol(X))
 
+###
+lambda = seq(0,3,.01)
+solpath = regsynthpath(X0,t(X[d==1,]),y[d==0],y[d==1],V,lambda)
 
-#######################
-#######################
-### FIND lambda.opt ###
-#######################
-#######################
+# Weight as function of penalty level
+matplot(lambda,solpath$Wsol[,1,], type="l", lwd=2,
+        main="Sparse Synthetic Control Regularization path",
+        xlab="Penalty level", ylab="weight", ylim=c(0,1))
+solpath$Wsol[which(lambda==2.50),1,]
+# lambda.max seems before 2.5
 
-set.seed(14021989)
+M = X1[,1]
+l.max = lambda.max(X0,M,V)
+# but here given by 1.16
+solpath$Wsol[which(lambda==1.16),1,]
 
-### The goal is to perform k-fold cross-validation to find the optimal value of lambda
-lambda = seq(0,2,.01)
+### Which solution gives the best objective function with lambda.max?
+Delta = matrix(t(M)%*%V%*%M, nrow=ncol(X0), ncol=1) - 2*t(X0)%*%V%*%M + diag(t(X0)%*%V%*%X0)
+P = 2*t(X0)%*%V%*%X0
+q = t(-2*t(X0)%*%V%*%M + l.max*Delta)
 
-Y0 = y[d==0]
-n0 = sum(1-d)
-K = 5 # number of folds
-allocation = sample(1:K,n0,replace=T)
+# Case 1
+w1 = solpath$Wsol[which(lambda==1.16),1,]
+print(t(w1)%*%P%*%w1/2 + q%*%w1)
 
-ATTcv = matrix(nrow=K, ncol=length(lambda))
-for(k in 1:K){
-  X1k = X0[,allocation==k]
-  X0k = X0[,allocation!=k]
-  Y1k = Y0[allocation==k]
-  Y0k = Y0[allocation!=k]
-  solpath = regsynthpath(X0k,X1k,Y0k,Y1k,V,lambda)
-  ATTcv[k,] = apply(solpath$CATT^2,1,sum)
-}
-
-curve = apply(ATTcv,2,sum)/n0
-lambda.opt = lambda[which(curve==min(curve))]
-
-# Now select the value that gives ATT close to zero
-matplot(lambda,curve, type="o",pch=20,col="firebrick",
-        xlab=expression(lambda), ylab="MSE", main="Cross-validation plot")
-
-matplot(lambda,t(ATTcv), type="o",pch=20,
-        xlab=expression(lambda), ylab="ATT", main="Cross-validation plot")
+# Case 2
+w2 = rep(0, ncol(X0))
+w2[which(Delta==min(Delta))] = 1
+print(t(w2)%*%P%*%w2/2 + q%*%w2)
 
 
-#######################
-#######################
-### PERMUTATION TEST ##
-#######################
-#######################
+### Other example
+data = matchDGP(n=10,p=50,Ry=.5,Rd=.2)
+X = data$X; y = data$y; d = data$d
 
-# Only controls should be used for the controls
-sol1 = regsynth(X0,X1,y[d==0],y[d==1],V,lambda.opt)
-CATE0 = vector(length=n0)
-for(i in 1:n0){
-  X0i = as.matrix(X0[,i],ncol=1)
-  X0_i = X0[,-i]
-  Y0i = Y0[i]
-  Y0_i = Y0[-i]
-  sol0 = regsynth(X0_i,X0i,Y0_i,Y0i,V,lambda.opt)
-  CATE0[i] = sol0$CATT 
-}
+X0 = t(X[d==0,]); X1 = t(X[d==1,]); V = diag(ncol(X))
 
-tau = data.frame(CATT=c(sol1$CATT,CATE0),
-                 d=c(rep(1,sum(d)),rep(0,sum(1-d))))
+###
+lambda = seq(0,15,.1)
+solpath = regsynthpath(X0,t(X[d==1,]),y[d==0],y[d==1],V,lambda)
 
+# Weight as function of penalty level
+matplot(lambda,solpath$Wsol[,1,], type="l", lwd=2,
+        main="Sparse Synthetic Control Regularization path",
+        xlab="Penalty level", ylab="weight", ylim=c(0,1))
+solpath$Wsol[which(lambda==11),1,]
+# lambda.max seems before 11
 
-ggplot(tau, aes(x=CATT, fill=as.factor(d))) + 
-  geom_density(alpha=.3, position='identity', aes(y = ..density..)) +
-  scale_x_continuous(name="CATE") +
-  ggtitle("CATE DIstribution for Treated / Control group") + 
-  theme(plot.title = element_text(lineheight=.8, face="bold")) +
-  scale_fill_discrete(name="Group",
-                      breaks=c("1", "0"),
-                      labels=c("Treated","Control")) +
-  theme(legend.position="bottom")
+M = X1[,1]
+l.max = lambda.max(X0,M,V)
+solpath$Wsol[which(lambda==5),1,]
 
-# Implement test based on ranks
+### Which solution gives the best objective function with lambda.max?
+Delta = matrix(t(M)%*%V%*%M, nrow=ncol(X0), ncol=1) - 2*t(X0)%*%V%*%M + diag(t(X0)%*%V%*%X0)
+P = 2*t(X0)%*%V%*%X0
+q = t(-2*t(X0)%*%V%*%M + l.max*Delta)
+
+# Case 1
+w1 = solpath$Wsol[which(lambda==5),1,]
+print(t(w1)%*%P%*%w1/2 + q%*%w1)
+
+# Case 2
+w2 = rep(0, ncol(X0))
+w2[which(Delta==min(Delta))] = 1
+print(t(w2)%*%P%*%w2/2 + q%*%w2)

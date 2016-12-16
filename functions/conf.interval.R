@@ -16,6 +16,10 @@
 #' @author Jeremy LHour
 
 conf.interval <- function(d,y,X,V,lambda,B=10000,alpha=.05){
+  # Record time 
+  t_start = Sys.time()
+  pb = txtProgressBar(style = 3)
+  
   # Compute ATET on original sample
   n0 = sum(1-d); n1 = sum(d); n = n1+n0;
   X0 = t(X[d==0,]); X1 = t(X[d==1,]);
@@ -32,7 +36,9 @@ conf.interval <- function(d,y,X,V,lambda,B=10000,alpha=.05){
     X0 = t(X[dpermut[,b]==0,]); X1 = t(X[dpermut[,b]==1,]);
     solstar = regsynth(X0,X1,Y0,Y1,V,lambda)
     Wsol[b,,] = solstar$Wsol
+    setTxtProgressBar(pb, b/B)
   }
+  close(pb)
   
   ### Compute confidence interval based on these weights
   # Upper bound
@@ -93,6 +99,8 @@ conf.interval <- function(d,y,X,V,lambda,B=10000,alpha=.05){
   Cl = (a+b)/2
 
   print(paste(alpha," confidence interval: [",Cl,",",Cu,"]"))  
+  print(Sys.time()-t_start)
+  
   return(list(c.int=c(Cl,Cu),
               alpha=alpha))
 }

@@ -113,7 +113,7 @@ MCXP_setup <- function(R=1000,n=100,p=50){
   StatDisplay <- data.frame()
   StatDisplay[1:10,"bias"] <- apply(Results,2,mean)
   StatDisplay[1:10,"RMSE"]  <- sqrt(apply(Results^2,2,mean))
-  StatDisplay[1:10,"ShapiroTest"]  <- apply(Results,2, function(x) shapiro.test(x)$p.value)
+  if(R<5000) StatDisplay[1:10,"ShapiroTest"]  <- apply(Results,2, function(x) shapiro.test(x)$p.value)
   row.names(StatDisplay) <- c("Aggregate Synth","1NN Matching","5NN Matching",
                               "NN Synth RMSE opt","NN Synth bias opt","NN Synth crit opt",
                               "Penalized Synth fixed",
