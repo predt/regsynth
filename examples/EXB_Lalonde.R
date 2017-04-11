@@ -1,4 +1,5 @@
-### Sparse Synthetic Control on Lalonde
+### Lalonde dataset example
+### Jeremy L Hour
 
 setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 rm(list=ls())
@@ -17,15 +18,20 @@ source("functions/wsol.R")
 source("functions/wsoll1.R")
 source("functions/matchDGP.R")
 source("functions/wATT.R")
+source("functions/matching.R")
+source("functions/matchest.R")
+source("functions/OBest.R")
+source("functions/regsynth.R")
+source("functions/regsynthpath.R")
 source("functions/TZero.R")
 source("functions/synthObj.R")
-source("functions/matching.R")
+source("simulations/MCXP_setup.R")
 
 ### min-max scale
 mMscale <- function(X){
-  X <- as.matrix(X)
-  mins <- apply(X,2,min)
-  maxs <- apply(X,2,max)
+  X = as.matrix(X)
+  mins = apply(X,2,min)
+  maxs = apply(X,2,max)
   return(scale(X, center=mins, scale=maxs-mins))
 }
 
@@ -33,71 +39,58 @@ mMscale <- function(X){
 library("causalsens")
 data(lalonde.psid)
 
-d <- lalonde.psid[,"treat"]
-y <- lalonde.psid[,"re78"]
+d = lalonde.psid[,"treat"]
+y = lalonde.psid[,"re78"]
 
-X <- data.frame(lalonde.psid[,c("age","education","married","black","hispanic","re74","re75","nodegree")],
+X = data.frame(lalonde.psid[,c("age","education","married","black","hispanic","re74","re75","nodegree")],
                      "NoIncome74"=as.numeric(lalonde.psid[,"re74"]==0),
                      "NoIncome75"=as.numeric(lalonde.psid[,"re75"]==0)
 )
-X[,c("age","education","re74","re75")] <- mMscale(X[,c("age","education","re74","re75")])
-X <- as.matrix(X)
+X[,c("age","education","re74","re75")] = mMscale(X[,c("age","education","re74","re75")])
+X = as.matrix(X)
 
 
 ### Run Synthetic Control
-### Running Sparse Synthetic Control
 X0 = t(X[d==0,])
 X1 = t(X[d==1,])
 V = diag(ncol(X))
 
-### 2. SC on the mean
-M = matrix(apply(X1,1,mean), ncol=1)
-sol_mSC = wsol(X0,M,V)
+set.seed(12071990)
+lambda = seq(0,2,.01) # set of lambda to be considered for optim
+K = 5 # number of folds for optimal penalty level
 
-### 2. SC on each unit
-cf = vector(length = sum(d))
-for(i in 1:sum(d)){
-  sol = wsol(X0,X1[,i],V)
-  cf[i] = t(y[d==0])%*%sol
+# A. lambda = .1
+sol = regsynth(X0,X1,Y0,Y1,V,.1)
+RSC.fixed = sol$ATT
+
+# B. lambda = lambdaopt
+keeptau = matrix(nrow=length(lambda), ncol=length(Y0))
+for(k in 1:K){
+  X1k = as.matrix(X0[,allocation==k])
+  X0k = as.matrix(X0[,allocation!=k])
+  Y1k = Y0[allocation==k]
+  Y0k = Y0[allocation!=k]
+  solpath = regsynthpath(X0k,X1k,Y0k,Y1k,V,lambda)
+  keeptau[,allocation==k] = solpath$CATT
 }
-attSCu <- mean(y[d==1] - cf)
 
-### 3. 1NN matching 
-cf = vector(length = sum(d))
-for(i in 1:sum(d)){
-  sol = matching(X0,X1[,i],V,m=1)
-  cf[i] = t(y[d==0])%*%sol
-}
-attm1 <- mean(y[d==1] - cf)
+# The one that optimizes RMSE
+curve.RMSE = apply(keeptau^2,1,sum)/n0
+lambda.opt.RMSE = min(lambda[which(curve.RMSE==min(curve.RMSE))])
+sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.RMSE)
+RSC.opt.RMSE = sol$ATT
 
-### 4. 5NN matching
-cf = vector(length = sum(d))
-for(i in 1:sum(d)){
-  sol = matching(X0,X1[,i],V,m=5)
-  cf[i] = t(y[d==0])%*%sol
-}
-attm5 <- mean(y[d==1] - cf)
+# The one that optimizes bias
+curve.bias = abs(apply(keeptau,1,sum)/n0)
+lambda.opt.bias = min(lambda[which(curve.bias==min(curve.bias))])
+sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.bias)
+RSC.opt.bias = sol$ATT
 
-### 5. Sparse Synthetic Control, on mean
-sol_SparsemSC = wsoll1(X0,M,V,.1) # Penalty originally set to .1
-
-### 6. Sparse Synthetic Control, on each unit
-cf = vector(length = sum(d))
-for(i in 1:sum(d)){
-  sol = wsoll1(X0,X1[,i],V,.1)
-  cf[i] = t(y[d==0])%*%sol
-  print(100*i/sum(d))
-}
-attSparseSCu <- mean(y[d==1] - cf)
-
-
-### 6. Third step: ATT estimation
-Results[r,] <- c(wATT(y,d,sol_mSC),
-                 attSCu,
-                 attm1,
-                 attm5,
-                 wATT(y,d,sol_SparsemSC),
-                 attSparseSCu)
+# The one that optimizes bias + variance
+curve.crit = curve.bias + apply(keeptau,1,sd)
+lambda.opt.crit = min(lambda[which(curve.crit==min(curve.crit))])
+sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.crit)
+RSC.opt.crit = sol$ATT
 
 
 ### The dataset could be used to do some kind of Monte Carlo
