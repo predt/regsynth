@@ -3,7 +3,8 @@
 ### 11 avril 2017
 
 setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
-
+# Maison:
+setwd("/Users/jeremylhour/Documents/R/regsynth")
 
 rm(list=ls())
 set.seed(3101990)
@@ -31,6 +32,10 @@ source("functions/synthObj.R")
 
 ### 0. Loading data
 data = readMat("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth/data/GeithnerConnexions/Matlab Files/Data.mat")
+
+# Maison:
+data = readMat("data/GeithnerConnexions/Matlab Files/Data.mat")
+
 
 ### 1. Data cleaning and setting
 ticker = data$ticker # firms tickers
@@ -87,22 +92,68 @@ Z = cbind(X[,c(8,9,10)], X[,c(8,9,10)]^2, X[,c(8,9,10)]^3)
 ConnReturns = ts(apply(y[PreTreatPeriod,d==1],1,mean),start=c(1), freq=365)
 NConnReturns = ts(apply(y[PreTreatPeriod,d==0],1,mean),start=c(1), freq=365)
 
+# Balance check
+# Treated
+apply(X[d==1,c(8,9,10)],2,summary)
+# Control
+apply(X[d==0,c(8,9,10)],2,summary)
+
+# Nested support seems to hold
+
 # TO DO: charts and balance checks...
 
-### 2. Estimation and Synthetic Control
-X0 = y[PreTreatPeriod,d==0] # For now only pre-treatment outcomes
-X1 = y[PreTreatPeriod,d==1]
+### 3. CV for selecting optimal lambda
+# X0 = rbind(y[PreTreatPeriod,d==0],t(Z[d==0,]))
+# X1 = rbind(y[PreTreatPeriod,d==1],t(Z[d==1,]))
 
-Y0 = y[GeiNomDate+1,d==0]
-Y1 = y[GeiNomDate+1,d==1]
-
+X0 = y[PreTreatPeriod,d==0]; X1 = y[PreTreatPeriod,d==1]
+Y0 = y[GeiNomDate+1,d==0]; Y1 = y[GeiNomDate+1,d==1]
 V = cor(t(X0))
 
-solution = regsynth(X0,X1,Y0,Y1,V,1,tol=1e-6) # setting lambda = 1 gives a non-NN solution
+lambda = seq(0,3,.1)
+estval = regsynthpath(X0,X1,Y0,Y1,V,lambda,tol=1e-6)
 
+
+#### STOPPED HERE!!
+# colnames(Wsol) = States[States!="California"]
+sigma = sqrt(apply((X1 - X0%*%t(solution$Wsol))^2,2,mean)) # Goodness of fit for each treated over pre-treatment period
+omega = 1/(sigma*sum(1/sigma))
+phi = cumsum((y[340:353,d==1] - y[340:353,d==0]%*%t(solution$Wsol))%*%omega)
+
+
+MSPE = (SyntheticControl - kronecker(matrix(1,nrow=length(lambda)),as.matrix(data[rownames(data)=="California",varname])))^2
+MSPE = apply(MSPE,1,mean)
+
+
+matplot(lambda,MSPE, type="o", pch=20,
+        main="MSPE", col="steelblue",
+        xlab=expression(lambda), ylab="MSPE")
+
+lambda.opt.MSPE = min(lambda[which(MSPE==min(MSPE))])
+
+
+
+
+### 4. Estimation
+
+solution = regsynth(X0,X1,Y0,Y1,V,.3,tol=1e-6) # setting lambda = 1 gives a non-NN solution
+
+# Number of active controls
+apply(solution$Wsol>0,1,sum)
+
+# Balance check on Z
+apply(X[d==1,c(8,9,10)],2,mean)
+apply(solution$Wsol%*%as.matrix(X[d==0,c(8,9,10)]),2,mean)
 
 # Abnormal returns are defined as returns minus synthetic control returns
 AR = y[,d==1] - y[,d==0] %*% t(solution$Wsol)
+
+# Compute the statistics (see paper)
+sigma = sqrt(apply((X1 - X0%*%t(solution$Wsol))^2,2,mean)) # Goodness of fit for each treated over pre-treatment period
+omega = 1/(sigma*sum(1/sigma))
+phi = cumsum((y[GeiNomDate:(GeiNomDate+30),d==1] - y[GeiNomDate:(GeiNomDate+30),d==0]%*%t(solution$Wsol))%*%omega)
+
+plot(phi,type="l")
 
 # Draw cumulated returns chart
 # select a windo with few dates to better see the chart
@@ -110,13 +161,13 @@ TV0 = GeiNomDate - 5
 TVF = GeiNomDate + 30
 cumy = apply(y,2,cumsum)
 
-plotdata = ts(cbind(apply(cumy[TV0:TVF,d==1],1,mean), apply(cumy[TV0:TVF,d==0] %*% t(solution$Wsol),1,mean)),start=c(1), freq=1)
+plotdata = ts(cbind(apply(y[TV0:TVF,d==1],1,mean), apply(y[TV0:TVF,d==0] %*% t(solution$Wsol),1,mean)),start=c(1), freq=1)
 
 
 plot(plotdata, plot.type="single",
      col=c("steelblue","firebrick"), lwd=2,
      lty=c(1,6),xlab="", ylab="Cumulated returns",
-     ylim=c(-0.2,0.2))
+     ylim=c(-.2,.2))
 lim <- par("usr")
 rect(5, lim[3], lim[2], lim[4], col = rgb(0.5,0.5,0.5,1/4))
 axis(1) ## add axes back
@@ -131,69 +182,9 @@ legend(1971,80,
 
 
 
-
-data = data.frame(t(read.table("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth/data/MLAB_data.txt")))
-
-Names = c("State_ID","Income","RetailPrice", "Young", "BeerCons","Smoking1988", "Smoking1980","Smoking1975",
-          mapply(function(x) paste("SmokingCons",x,sep=""),1970:2000))
-colnames(data) = Names
-States = c("Alabama", "Arkansas","Colorado","Connecticut","Delaware",
-           'Georgia',  'Idaho',  'Illinois',  'Indiana', 'Iowa', 'Kansas',
-           'Kentucky', 'Louisiana', 'Maine', 'Minnesota', 'Mississippi',
-           'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire',
-           'New Mexico', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma',
-           'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
-           'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia' , 'West Virginia',
-           'Wisconsin', 'Wyoming', 'California')
-rownames(data) = States
-data[,"Treated"]= as.numeric(data[,"State_ID"]==3) #California is state with ID=3
-
-CASmoke = ts(unlist(data[data[,"Treated"]==1, mapply(function(x) paste("SmokingCons",x,sep=""),1970:2000)]),
-             start=c(1970), freq=1)
-
-### 1. Arbitrary tuning parameter
-X = data[,c("Income","RetailPrice", "Young", "BeerCons",
-            mapply(function(x) paste("SmokingCons",x,sep=""),1970:1988))]
-d = data[,"Treated"]
-V = diag(ncol(X))
-
-X0 = t(X[d==0,])
-X1 = t(X[d==1,])
-
-### Regularization path
-lambda = seq(0,1,.001)
-Wsol = matrix(nrow=length(lambda), ncol=sum(1-d))
-att = vector(length = length(lambda))
-
-for(i in 1:length(lambda)){
-  sol = wsoll1(X0,X1,V,lambda[i])
-  sol = TZero(sol)
-  Wsol[i,] = sol
-}
-
-colnames(Wsol) = States[States!="California"]
-print("Non-zero weights for the pure synthetic control:")
-Wsol[1,Wsol[1,]!=0]
-
-# Weight as function of penalty level
-matplot(lambda,Wsol, type="l", lwd=2,
-        main="Regularization path",
-        xlab="Penalty level", ylab="weight", ylim=c(0,1))
-
-
-# All possible counterfactuals
-y = data[rownames(data)!="California",mapply(function(x) paste("SmokingCons",x,sep=""),1970:2000)]  
-SyntheticControl = Wsol %*% as.matrix(y)
-
-matplot(1970:2000,t(SyntheticControl), type="l",
-        main="All possible counterfactuals",
-        xlab="Year", ylab="weight", ylim=c(35,150))
-lim <- par("usr")
-rect(1988, lim[3], lim[2], lim[4], col = rgb(0.5,0.5,0.5,1/4))
-axis(1) ## add axes back
-axis(2)
-box() 
-
+######
+######
+### OTHER EXAMPLE
 
 ### 2. Cross-validation to select tuning parameter (time-based)
 varname = mapply(function(x) paste("SmokingCons",x,sep=""),1970:1980)
