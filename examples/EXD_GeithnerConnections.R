@@ -4,10 +4,9 @@
 
 setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 # Maison:
-setwd("/Users/jeremylhour/Documents/R/regsynth")
+# setwd("/Users/jeremylhour/Documents/R/regsynth")
 
 rm(list=ls())
-set.seed(3101990)
 
 ### Load packages
 library("MASS")
@@ -34,7 +33,7 @@ source("functions/synthObj.R")
 data = readMat("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth/data/GeithnerConnexions/Matlab Files/Data.mat")
 
 # Maison:
-data = readMat("data/GeithnerConnexions/Matlab Files/Data.mat")
+#data = readMat("data/GeithnerConnexions/Matlab Files/Data.mat")
 
 
 ### 1. Data cleaning and setting
@@ -46,7 +45,7 @@ for(i in 1:603){
   if(length(unlist(ticker[i])) > 0){
     row.names(X)[i] = unlist(ticker[i])
   } else {
-    row.names(X)[i] = "Uknown"
+    row.names(X)[i] = "Unknown"
   }
 }
 
@@ -66,19 +65,17 @@ FalsifTest = c(340:353,357:389,395:447) # Window for falsification test
 
 # Correlation with Citi and BoA on Pre-treatment period
 # We want to exclude the effect of the CitiGroup bailout
-# Not sure whether we need to exclude BoA correlated firms (check page 30 of Acemoglu paper)
+# No need to exclude BoA (tax problem after nomination, check page 29)
 Citi = which(X[,5]==140)  # Citi Group 
-BoA = which(X[,5]==56)    # Bank of America
-
 corrCiti = cor(y[PreTreatPeriod,Citi], y[PreTreatPeriod,])
-corrBoA = cor(y[PreTreatPeriod,BoA], y[PreTreatPeriod,])
-
 # Compute Q10 for correlation distributions
 corrCitiTr = sort(corrCiti,decreasing=T)[58]
-corrBoATr = sort(corrBoA,decreasing=T)[58]
+
+X = X[corrCiti<corrCitiTr,]
+y = y[,corrCiti<corrCitiTr]
 
 # Treatment variable
-d = X[,ConnMeasure] > 0
+d = X[,ConnMeasure] > 0 # one or more meetings in 2007-08
 
 # Control variable other than pre-treatment outcomes
 # Include:
@@ -100,7 +97,7 @@ apply(X[d==0,c(8,9,10)],2,summary)
 
 # Nested support seems to hold
 
-# TO DO: charts and balance checks...
+# TO DO: charts 
 
 ### 3. CV for selecting optimal lambda
 # X0 = rbind(y[PreTreatPeriod,d==0],t(Z[d==0,]))
@@ -108,202 +105,206 @@ apply(X[d==0,c(8,9,10)],2,summary)
 
 X0 = y[PreTreatPeriod,d==0]; X1 = y[PreTreatPeriod,d==1]
 Y0 = y[GeiNomDate+1,d==0]; Y1 = y[GeiNomDate+1,d==1]
-V = cor(t(X0))
 
-lambda = seq(0,3,.1)
+V = diag(1/diag(var(t(X0)))) # Not sure we need to reweight as all X are currently the same scale
+
+lambda = seq(0,1.5,.1) # sequence of lambdas to test
 estval = regsynthpath(X0,X1,Y0,Y1,V,lambda,tol=1e-6)
+MSPE = vector(length=length(lambda))
 
+for(k in 1:length(lambda)){
+  MSPE[k] = mean(apply((y[324:354,d==1] - y[324:354,d==0]%*%t(estval$Wsol[k,,]))^2,2,mean))
+}
+lambda.opt.MSPE = min(lambda[which(MSPE==min(MSPE))]) # Optimal lambda is .2
 
-#### STOPPED HERE!!
-# colnames(Wsol) = States[States!="California"]
-sigma = sqrt(apply((X1 - X0%*%t(solution$Wsol))^2,2,mean)) # Goodness of fit for each treated over pre-treatment period
-omega = 1/(sigma*sum(1/sigma))
-phi = cumsum((y[340:353,d==1] - y[340:353,d==0]%*%t(solution$Wsol))%*%omega)
-
-
-MSPE = (SyntheticControl - kronecker(matrix(1,nrow=length(lambda)),as.matrix(data[rownames(data)=="California",varname])))^2
-MSPE = apply(MSPE,1,mean)
-
-
-matplot(lambda,MSPE, type="o", pch=20,
-        main="MSPE", col="steelblue",
+### Figure 1: MSPE
+pdf("plot/Geithner_MSPE.pdf", width=6, height=6)
+matplot(lambda, MSPE, type="b", pch=20, lwd=1,
+        main=expression("MSPE, "*lambda^{opt}*"= .1"), col="steelblue",
         xlab=expression(lambda), ylab="MSPE")
-
-lambda.opt.MSPE = min(lambda[which(MSPE==min(MSPE))])
-
+abline(v=lambda.opt.MSPE,lty=2,lwd=2,col="grey")
+dev.off()
 
 
 
 ### 4. Estimation
-
-solution = regsynth(X0,X1,Y0,Y1,V,.3,tol=1e-6) # setting lambda = 1 gives a non-NN solution
+Wsol = estval$Wsol[which(MSPE==min(MSPE)),,]
+colnames(Wsol) = rownames(X[d==0,])
 
 # Number of active controls
-apply(solution$Wsol>0,1,sum)
+apply(Wsol>0,1,sum)
 
 # Balance check on Z
 apply(X[d==1,c(8,9,10)],2,mean)
-apply(solution$Wsol%*%as.matrix(X[d==0,c(8,9,10)]),2,mean)
-
-# Abnormal returns are defined as returns minus synthetic control returns
-AR = y[,d==1] - y[,d==0] %*% t(solution$Wsol)
+apply(Wsol%*%as.matrix(X[d==0,c(8,9,10)]),2,mean)
 
 # Compute the statistics (see paper)
-sigma = sqrt(apply((X1 - X0%*%t(solution$Wsol))^2,2,mean)) # Goodness of fit for each treated over pre-treatment period
+TestPeriod = (GeiNomDate-15):(GeiNomDate+30)
+sigma = sqrt(apply((X1 - X0%*%t(Wsol))^2,2,mean)) # Goodness of fit for each treated over pre-treatment period
 omega = 1/(sigma*sum(1/sigma))
-phi = cumsum((y[GeiNomDate:(GeiNomDate+30),d==1] - y[GeiNomDate:(GeiNomDate+30),d==0]%*%t(solution$Wsol))%*%omega)
+phi = (y[TestPeriod,d==1] - y[TestPeriod,d==0]%*%t(Wsol))%*%omega
 
+sigma_cutoff = mean(sigma) # for later use: correction during Fisher test
+# Shows the path of cumulated returns weighted by goodness of fit
 plot(phi,type="l")
 
-# Draw cumulated returns chart
-# select a windo with few dates to better see the chart
-TV0 = GeiNomDate - 5
-TVF = GeiNomDate + 30
-cumy = apply(y,2,cumsum)
+### 5. Fisher Test of No-Effect Assumption (C=0)
 
-plotdata = ts(cbind(apply(y[TV0:TVF,d==1],1,mean), apply(y[TV0:TVF,d==0] %*% t(solution$Wsol),1,mean)),start=c(1), freq=1)
+### Do again with 10-15 days before date of nomination
+set.seed(3101990)
+R = 5000 # Number of replications
+alpha = sqrt(3) # correction cut-off (see paper)
+Result = matrix(nrow=R, ncol=length(TestPeriod))
+Result_C = matrix(nrow=R, ncol=length(TestPeriod))
+t_start = Sys.time()
+pb = txtProgressBar(style = 3)
+for(r in 1:R){
+  dstar = sample(d)
+  X0star = y[PreTreatPeriod,dstar==0]; X1star = y[PreTreatPeriod,dstar==1]
+  solstar = regsynth(X0star,X1star,Y0,Y1,V,lambda)
+  
+  # Not corrected
+  sigmastar = sqrt(apply((X1star - X0star%*%t(solstar$Wsol))^2,2,mean))
+  omegastar = 1/(sigmastar*sum(1/sigmastar))
+  Result[r,] = (y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(solstar$Wsol))%*%omegastar
+  
+  # Corrected
+  omegastar_C = omegastar
+  omegastar_C[sigmastar>alpha*sigma_cutoff] = 0
+  omegast_Car_C = omegastar_C/sum(omegastar_C)
+  Result_C[r,] = (y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(solstar$Wsol))%*%omegastar_C
+  
+  setTxtProgressBar(pb, r/R)
+}
+close(pb)
+print(Sys.time()-t_start)
 
+### Not corrected
 
-plot(plotdata, plot.type="single",
-     col=c("steelblue","firebrick"), lwd=2,
-     lty=c(1,6),xlab="", ylab="Cumulated returns",
-     ylim=c(-.2,.2))
+# Compute .025 and .975 quantiles of CAR for each date
+phi_q005 = mapply(function(t) quantile(Result[,t], probs = .005), 1:length(TestPeriod))
+phi_q025 = mapply(function(t) quantile(Result[,t], probs = .025), 1:length(TestPeriod))
+phi_q975 = mapply(function(t) quantile(Result[,t], probs = .975), 1:length(TestPeriod))
+phi_q995 = mapply(function(t) quantile(Result[,t], probs = .995), 1:length(TestPeriod))
+
+ATTdata = ts(cbind(phi_q005,phi_q025,phi,phi_q975,phi_q995),start=c(-15), freq=1)
+
+### Figure 2: Geithner connected firms effect vs. random permutations
+pdf("plot/GeithnerAR_FisherTest.pdf", width=10, height=6)
+plot(ATTdata, plot.type="single",
+     col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
+     lty=c(3,4,1,4,3),xlab="Day", ylab="AR, in pp",
+     ylim=c(-.1,.1),
+     main="Abnormal Returns (AR) for True Treatment vs. Random Permutations")
+abline(h=0,
+       lty=2,col="grey")
 lim <- par("usr")
-rect(5, lim[3], lim[2], lim[4], col = rgb(0.5,0.5,0.5,1/4))
+rect(0, lim[3], lim[2], lim[4], col = rgb(0.5,0.5,0.5,1/4))
 axis(1) ## add axes back
 axis(2)
 box() 
-legend(1971,80,
-       legend=c("Real Connected Firms", "Synthetic Firms"),
-       col=c("steelblue","firebrick","forestgreen"), lwd=2,
-       lty=c(1,6,6))
+legend(-15,-.075,
+       legend=c("Estimate", ".95 confidence bands of Fisher distrib.",".99 confidence bands of Fisher distrib."),
+       col=c("firebrick","firebrick"), lwd=c(2,1,1),
+       lty=c(1,4,3))
+dev.off()
 
+### Corrected
 
+phi_q005 = mapply(function(t) quantile(Result_C[,t], probs = .005), 1:length(TestPeriod))
+phi_q025 = mapply(function(t) quantile(Result_C[,t], probs = .025), 1:length(TestPeriod))
+phi_q975 = mapply(function(t) quantile(Result_C[,t], probs = .975), 1:length(TestPeriod))
+phi_q995 = mapply(function(t) quantile(Result_C[,t], probs = .995), 1:length(TestPeriod))
 
+ATTdata = ts(cbind(phi_q005,phi_q025,phi,phi_q975,phi_q995),start=c(-15), freq=1)
 
-
-######
-######
-### OTHER EXAMPLE
-
-### 2. Cross-validation to select tuning parameter (time-based)
-varname = mapply(function(x) paste("SmokingCons",x,sep=""),1970:1980)
-Xtrain = cbind(data[,c("Income","RetailPrice", "Young", "BeerCons", varname)])
-
-V = diag(ncol(Xtrain))
-X0 = t(Xtrain[d==0,])
-X1 = t(Xtrain[d==1,])
-
-### Computing with all lambda's on training sample
-lambda = seq(0,3,.01)
-Wsol = matrix(nrow=length(lambda), ncol=sum(1-d))
-att = vector(length = length(lambda))
-
-for(i in 1:length(lambda)){
-  sol = wsoll1(X0,X1,V,lambda[i])
-  sol = TZero(sol)
-  Wsol[i,] = sol
-}
-
-colnames(Wsol) = States[States!="California"]
-
-### See performance on test sample
-varname = mapply(function(x) paste("SmokingCons",x,sep=""),1983:1988)
-Xtest = data[rownames(data)!="California",varname]
-SyntheticControl = Wsol %*% as.matrix(Xtest)
-MSPE = (SyntheticControl - kronecker(matrix(1,nrow=length(lambda)),as.matrix(data[rownames(data)=="California",varname])))^2
-MSPE = apply(MSPE,1,mean)
-
-
-matplot(lambda,MSPE, type="o", pch=20,
-        main="MSPE", col="steelblue",
-        xlab=expression(lambda), ylab="MSPE")
-
-lambda.opt.MSPE = min(lambda[which(MSPE==min(MSPE))])
-
-varname = mapply(function(x) paste("SmokingCons",x,sep=""),1970:2000)
-y = data[rownames(data)!="California",varname]  
-SyntheticControl = t(Wsol[which(MSPE==min(MSPE)),] %*% as.matrix(y))
-OriginalSC = t(Wsol[1,] %*% as.matrix(y))
-
-plotdata = ts(cbind(t(data[rownames(data)=="California",varname]), SyntheticControl, OriginalSC),start=c(1970), freq=1)
-
-
-plot(plotdata, plot.type="single",
-     col=c("steelblue","firebrick","forestgreen"), lwd=2,
-     lty=c(1,6,6),xlab="", ylab="Cigarette consumption (Packs per capita)",
-     ylim=c(35,150))
+### Figure 3: Geithner connected firms effect vs. random permutations, corrected
+pdf("plot/GeithnerAR_FisherTestCorrected.pdf", width=10, height=7)
+plot(ATTdata, plot.type="single",
+     col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
+     lty=c(3,4,1,4,3),xlab="Day", ylab="AR, in pp",
+     ylim=c(-.1,.1),
+     main="")
+abline(h=0,
+       lty=2,col="grey")
 lim <- par("usr")
-rect(1988, lim[3], lim[2], lim[4], col = rgb(0.5,0.5,0.5,1/4))
+rect(0, lim[3], lim[2], lim[4], col = rgb(0.5,0.5,0.5,1/4))
 axis(1) ## add axes back
 axis(2)
 box() 
-legend(1971,80,
-       legend=c("Real California", "Synthetic Control, opt lambda", "Original Synthetic Control"),
-       col=c("steelblue","firebrick","forestgreen"), lwd=2,
-       lty=c(1,6,6))
+legend(0.5,-.065,
+       legend=c("Estimate", ".95 confidence bands of Fisher distrib.",".99 confidence bands of Fisher distrib."),
+       col=c("firebrick","firebrick"), lwd=c(2,1,1),
+       lty=c(1,4,3))
+dev.off()
 
 
-### 3. Cross-validation (unit based)
-varname = mapply(function(x) paste("SmokingCons",x,sep=""),1970:2000)
-Xtrain = cbind(data[d==0,c("Income","RetailPrice", "Young", "BeerCons", varname)])
-testvarname = mapply(function(x) paste("SmokingCons",x,sep=""),1989:2000)
-Xtest = cbind(data[d==0,testvarname])
+### CAR[0,1] and CAR[0,10] Table, non corrected version
+cumphi = cumsum(phi[16:length(phi)])
 
-V = diag(ncol(Xtrain))
-dstar = rep(0,sum(d==0))
-lambda = seq(0,3.5,.01)
-MSPE = matrix(nrow=sum(d==0), ncol=length(lambda))
+cumResult = t(apply(Result[,16:length(phi)],1,cumsum))
+cumphi_q005 = mapply(function(t) quantile(cumResult[,t], probs = .005), 1:ncol(cumResult))
+cumphi_q025 = mapply(function(t) quantile(cumResult[,t], probs = .025), 1:ncol(cumResult))
+cumphi_q975 = mapply(function(t) quantile(cumResult[,t], probs = .975), 1:ncol(cumResult))
+cumphi_q995 = mapply(function(t) quantile(cumResult[,t], probs = .995), 1:ncol(cumResult))
 
-for(j in 1:sum(d==0)){
-  dstar[j] = 1 
-  X0 = t(Xtrain[dstar==0,])
-  X1 = t(Xtrain[dstar==1,])
-  
-  Wsol = matrix(nrow=length(lambda), ncol=sum(1-dstar))
-  
-  for(i in 1:length(lambda)){
-    sol = wsoll1(X0,X1,V,lambda[i])
-    sol = TZero(sol)
-    Wsol[i,] = sol
-  }
-  
-  SyntheticControl = Wsol %*% as.matrix(Xtest[dstar==0,])
-  MSPE_i = (SyntheticControl - kronecker(matrix(1,nrow=length(lambda)),as.matrix(Xtest[dstar==1,])))^2
-  MSPE[j,] = apply(MSPE_i,1,mean)
-  
-  dstar[j] = 0 
-}
+Table5 = data.frame("Estimate"=cumphi,"Q0.05"=cumphi_q005,"Q0.25"=cumphi_q025,
+                    "Q97.5"=cumphi_q975,"Q99.5"=cumphi_q995)
 
-MSPETot = apply(MSPE,2,mean)
+print("Event day 1")
+print(Table5[1,])
 
-matplot(lambda,MSPETot, type="o", pch=20,
-        main="MSPE", col="steelblue",
-        xlab=expression(lambda), ylab="MSPE")
+print("Event day 10")
+print(Table5[10,])
 
+ATTdata = ts(cbind(cumphi_q005,cumphi_q025,cumphi,cumphi_q975,cumphi_q995),start=c(1), freq=1)
+### Figure 3: Geithner connected firms effect vs. random permutations
+pdf("plot/GeithnerCAR_FisherTest.pdf", width=10, height=6)
+plot(ATTdata, plot.type="single",
+     col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
+     lty=c(3,4,1,4,3),xlab="Day", ylab="CAR, in pp",
+     ylim=c(-.25,.25),
+     main="Cumulative Abnormal Returns (CAR) for True Treatment vs. Random Permutations")
+abline(h=0,
+       lty=2,col="grey")
+legend(1,-.15,
+       legend=c("Estimate", ".95 confidence bands of Fisher distrib.",".99 confidence bands of Fisher distrib."),
+       col=c("firebrick","firebrick"), lwd=c(2,1,1),
+       lty=c(1,4,3))
+dev.off()
 
-### Computing with all lambda's on training sample
-lambda = seq(0,3.5,.001)
-Wsol = matrix(nrow=length(lambda), ncol=sum(1-d))
+### CAR[0,1] and CAR[0,10] Table, corrected version
+cumResult_C = t(apply(Result_C[,16:length(phi)],1,cumsum))
+cumphi_q005 = mapply(function(t) quantile(cumResult_C[,t], probs = .005), 1:ncol(cumResult))
+cumphi_q025 = mapply(function(t) quantile(cumResult_C[,t], probs = .025), 1:ncol(cumResult))
+cumphi_q975 = mapply(function(t) quantile(cumResult_C[,t], probs = .975), 1:ncol(cumResult))
+cumphi_q995 = mapply(function(t) quantile(cumResult_C[,t], probs = .995), 1:ncol(cumResult))
 
-for(i in 1:length(lambda)){
-  sol = wsoll1(X0,X1,V,lambda[i])
-  sol = TZero(sol)
-  Wsol[i,] = sol
-}
+Table5_Corrected = data.frame("Estimate"=cumphi,"Q0.05"=cumphi_q005,"Q0.25"=cumphi_q025,
+                    "Q97.5"=cumphi_q975,"Q99.5"=cumphi_q995)
 
-colnames(Wsol) = States[States!="California"]
+print("Event day 1")
+print(Table5_Corrected[1,])
 
-### See performance on test sample
-varname = mapply(function(x) paste("SmokingCons",x,sep=""),1983:1988)
-Xtest = data[rownames(data)!="California",varname]
-SyntheticControl = Wsol %*% as.matrix(Xtest)
-MSPE = (SyntheticControl - kronecker(matrix(1,nrow=length(lambda)),as.matrix(data[rownames(data)=="California",varname])))^2
-MSPE = apply(MSPE,1,mean)
+print("Event day 10")
+print(Table5_Corrected[10,])
 
+ATTdata = ts(cbind(cumphi_q005,cumphi_q025,cumphi,cumphi_q975,cumphi_q995),start=c(1), freq=1)
+### Figure 4: Geithner connected firms effect vs. random permutations
+pdf("plot/GeithnerCAR_FisherTestCorrected.pdf", width=10, height=6)
+plot(ATTdata, plot.type="single",
+     col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
+     lty=c(3,4,1,4,3),xlab="Day", ylab="CAR, in pp",
+     ylim=c(-.25,.25),
+     main="Cumulative Abnormal Returns (CAR) for True Treatment vs. Random Permutations, \n Corrected Inference")
+abline(h=0,
+       lty=2,col="grey")
+legend(1,-.15,
+       legend=c("Estimate", ".95 confidence bands of Fisher distrib.",".99 confidence bands of Fisher distrib."),
+       col=c("firebrick","firebrick"), lwd=c(2,1,1),
+       lty=c(1,4,3))
+dev.off()
 
-matplot(lambda,MSPE, type="o", pch=20,
-        main="MSPE", col="steelblue",
-        xlab=expression(lambda), ylab="MSPE")
-
-lambda.opt.MSPE = min(lambda[which(MSPE==min(MSPE))])
+library(stargazer)
+ToPrint = t(rbind(Table5[1,],Table5[10,],Table5_Corrected[1,],Table5_Corrected[10,]))
+stargazer(t(ToPrint))

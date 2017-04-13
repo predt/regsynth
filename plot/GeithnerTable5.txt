@@ -1,0 +1,17 @@
+\begin{table}[!htbp] \centering 
+  \caption{} 
+  \label{} 
+\begin{tabular}{@{\extracolsep{5pt}} cccccc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+ & Estimate & Q0.05 & Q0.25 & Q97.5 & Q99.5 \\ 
+\hline \\[-1.8ex] 
+Day 1 & $0.053$ & $$-$0.063$ & $$-$0.050$ & $0.049$ & $0.069$ \\ 
+Day 10 & $0.107$ & $$-$0.109$ & $$-$0.082$ & $0.127$ & $0.177$ \\ 
+\hline
+Corrected inference \\
+Day 1 & $0.053$ & $$-$0.056$ & $$-$0.044$ & $0.040$ & $0.062$ \\ 
+Day 10 & $0.107$ & $$-$0.103$ & $$-$0.078$ & $0.098$ & $0.141$ \\ 
+\hline \\[-1.8ex] 
+\end{tabular} 
+\end{table}
