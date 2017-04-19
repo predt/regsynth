@@ -114,6 +114,7 @@ apply(X[d==0,c(8,9,10)],2,summary)
 X0 = y[PreTreatPeriod,d==0]; X1 = y[PreTreatPeriod,d==1]
 Y0 = y[GeiNomDate+1,d==0]; Y1 = y[GeiNomDate+1,d==1]
 
+# V = diag(1/diag(var(t(X0))))
 V = diag(nrow(X0)) # Not sure we need to reweight as all X are currently the same scale
 
 lambda = seq(0,1.5,.1) # sequence of lambdas to test
