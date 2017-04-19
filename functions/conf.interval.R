@@ -4,6 +4,7 @@
 #' Returns R ATET estimates on reshuffled samples
 #' and compute the p-value for sharp null hypothesis with constant C.
 #' Used to construct confidence intervals.
+#' Laste edit: 14 avril 2017
 #' 
 #' @param d is a vector of dimension n (treatment indicator)
 #' @param X is a matrix of dimension n x p
@@ -11,14 +12,13 @@
 #' @param V is a p x p matrix of weights
 #' @param lambda is a positive penalty level
 #' @param B is the number of draws for computing p-values
-#' @param alpha is the required level
+#' @param alpha is the required confidence level
 #' 
 #' @author Jeremy LHour
 
 conf.interval <- function(d,y,X,V,lambda,B=10000,alpha=.05){
   # Record time 
   t_start = Sys.time()
-  pb = txtProgressBar(style = 3)
   
   # Compute ATET on original sample
   n0 = sum(1-d); n1 = sum(d); n = n1+n0;
@@ -27,12 +27,13 @@ conf.interval <- function(d,y,X,V,lambda,B=10000,alpha=.05){
   sol1 = regsynth(X0,X1,y[d==0],y[d==1],V,lambda)
   theta.obs = sol1$ATT
   
+  print(paste("Point estimate: ",theta.obs))
+  
   # Reshuffle B times the sample and get Wsol
-  dpermut = matrix(nrow=n,ncol=B)
+  dpermut = replicate(B, sample(d)) # each column is a random permutation of d
   Wsol = array(dim=c(B,n1,n0))
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+  pb = txtProgressBar(style = 3)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
   for(b in 1:B){
-    dpermut[,b] = sample(d)
     X0 = t(X[dpermut[,b]==0,]); X1 = t(X[dpermut[,b]==1,]);
     solstar = regsynth(X0,X1,Y0,Y1,V,lambda)
     Wsol[b,,] = solstar$Wsol
@@ -102,7 +103,8 @@ conf.interval <- function(d,y,X,V,lambda,B=10000,alpha=.05){
   print(Sys.time()-t_start)
   
   return(list(c.int=c(Cl,Cu),
-              alpha=alpha))
+              alpha=alpha,
+              theta.obs=theta.obs))
 }
 
 
