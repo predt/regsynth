@@ -1,7 +1,11 @@
-#' Data Generating process for the example
+#' Data Generating process for Monte Carlo study
+#' Possible to module the non-linearity
+#' 
+#' CREATED: 19 avril 2017
 #' 
 #' @param n number of observations wanted
 #' @param p is the number of covariates
+#' @param delta is a parameter that sets the degree of linearity. delta=1 : linear
 #' @param Ry gives the R-square wanted in outcome equation
 #' @param Rd gives the R-square wanted in treatment equation
 #' @param rho parametrizes the covariance between the covariates
@@ -9,7 +13,7 @@
 #' 
 #' @autor Jeremy LHour
 
-matchDGP <- function(n=20,p=2,Ry=.5,Rd=.2,rho=.5,a=0){
+NLmatchDGP <- function(n=20,p=2,Ry=.5,Rd=.2,rho=.5,a=0){
   library("MASS")
   
   ### Covariate variance matrix
@@ -42,7 +46,7 @@ matchDGP <- function(n=20,p=2,Ry=.5,Rd=.2,rho=.5,a=0){
   X = mvrnorm(n = n, mu=rep(0,p), Sigma)
   d = as.numeric(runif(n) < pnorm(X%*%gamma))
   
-  y = a*d + exp(-X%*%b) + rnorm(n)
+  y = a*d + delta*(X%*%b) + (1-delta)*sin(X%*%b) + rnorm(n)
   
   return(list(X=X,
               y=y,

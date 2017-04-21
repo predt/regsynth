@@ -2,7 +2,9 @@
 ### Jeremy L Hour
 ### 10 octobre 2016
 
+### Very simple example of Fisher Tests for regression
 ### NB: not directly related to the project
+
 
 setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 rm(list=ls())

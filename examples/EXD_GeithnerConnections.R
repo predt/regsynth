@@ -1,6 +1,7 @@
 ### EXAMPLE 4: Geithner connections
 ### Jeremy L Hour
 ### 11 avril 2017
+### EDITED: 20 avril 2017
 
 setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 # Maison:
@@ -16,6 +17,7 @@ library("grid")
 library("reshape2")
 library("LowRankQP")
 library("R.matlab")
+library("stargazer")
 
 ### Load user functions
 source("functions/wsol.R")
@@ -114,8 +116,8 @@ apply(X[d==0,c(8,9,10)],2,summary)
 X0 = y[PreTreatPeriod,d==0]; X1 = y[PreTreatPeriod,d==1]
 Y0 = y[GeiNomDate+1,d==0]; Y1 = y[GeiNomDate+1,d==1]
 
-# V = diag(1/diag(var(t(X0))))
-V = diag(nrow(X0)) # Not sure we need to reweight as all X are currently the same scale
+V = diag(1/diag(var(t(y[PreTreatPeriod,])))) # Reweight by inverse of variance
+
 
 lambda = seq(0,1.5,.1) # sequence of lambdas to test
 estval = regsynthpath(X0,X1,Y0,Y1,V,lambda,tol=1e-6)
@@ -124,7 +126,7 @@ MSPE = vector(length=length(lambda))
 for(k in 1:length(lambda)){
   MSPE[k] = mean(apply((y[324:354,d==1] - y[324:354,d==0]%*%t(estval$Wsol[k,,]))^2,2,mean))
 }
-lambda.opt.MSPE = min(lambda[which(MSPE==min(MSPE))]) # Optimal lambda is .2
+lambda.opt.MSPE = min(lambda[which(MSPE==min(MSPE))]) # Optimal lambda is .1-.2
 
 ### Figure 1: MSPE
 pdf("plot/Geithner_MSPE.pdf", width=6, height=6)
@@ -169,7 +171,7 @@ pb = txtProgressBar(style = 3)
 for(r in 1:R){
   dstar = sample(d)
   X0star = y[PreTreatPeriod,dstar==0]; X1star = y[PreTreatPeriod,dstar==1]
-  solstar = regsynth(X0star,X1star,Y0,Y1,V,lambda)
+  solstar = regsynth(X0star,X1star,Y0,Y1,V,lambda.opt.MSPE)
   
   # Not corrected
   Result[r,] = apply((y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(solstar$Wsol)),1,mean)
@@ -189,19 +191,15 @@ print(Sys.time()-t_start)
 ### A. Not corrected
 
 # Compute .025 and .975 quantiles of CAR for each date
-phi_q005 = mapply(function(t) quantile(Result[,t], probs = .005), 1:length(TestPeriod))
-phi_q025 = mapply(function(t) quantile(Result[,t], probs = .025), 1:length(TestPeriod))
-phi_q975 = mapply(function(t) quantile(Result[,t], probs = .975), 1:length(TestPeriod))
-phi_q995 = mapply(function(t) quantile(Result[,t], probs = .995), 1:length(TestPeriod))
-
-ATTdata = ts(cbind(phi_q005,phi_q025,phi,phi_q975,phi_q995),start=c(-15), freq=1)
+phi_q = t(mapply(function(t) quantile(Result[,t], probs = c(.005,.025,.975,.995)), 1:length(TestPeriod)))
+ATTdata = ts(cbind(phi_q[,1:2],phi,phi_q[,3:4]),start=c(-15), freq=1)
 
 ### Figure 2: Geithner connected firms effect vs. random permutations
 pdf("plot/GeithnerAR_FisherTest.pdf", width=10, height=6)
 plot(ATTdata, plot.type="single",
      col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
      lty=c(3,4,1,4,3),xlab="Day", ylab="AR, in pp",
-     ylim=c(-.1,.1),
+     ylim=c(-.15,.15),
      main="Abnormal Returns (AR) for True Treatment vs. Random Permutations")
 abline(h=0,
        lty=2,col="grey")
@@ -217,17 +215,12 @@ legend(-15,-.075,
 dev.off()
 
 ### B. Corrected
-
-phi_q005 = mapply(function(t) quantile(Result_C[,t], probs = .005), 1:length(TestPeriod))
-phi_q025 = mapply(function(t) quantile(Result_C[,t], probs = .025), 1:length(TestPeriod))
-phi_q975 = mapply(function(t) quantile(Result_C[,t], probs = .975), 1:length(TestPeriod))
-phi_q995 = mapply(function(t) quantile(Result_C[,t], probs = .995), 1:length(TestPeriod))
-
-ATTdata = ts(cbind(phi_q005,phi_q025,phi,phi_q975,phi_q995),start=c(-15), freq=1)
+phi_qC = t(mapply(function(t) quantile(Result_C[,t], probs = c(.005,.025,.975,.995)), 1:length(TestPeriod)))
+ATTdataC = ts(cbind(phi_qC[,1:2],phi,phi_qC[,3:4]),start=c(-15), freq=1)
 
 ### Figure 3: Geithner connected firms effect vs. random permutations, corrected
 pdf("plot/GeithnerAR_FisherTestCorrected.pdf", width=10, height=7)
-plot(ATTdata, plot.type="single",
+plot(ATTdataC, plot.type="single",
      col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
      lty=c(3,4,1,4,3),xlab="Day", ylab="AR, in pp",
      ylim=c(-.1,.1),
@@ -248,15 +241,10 @@ dev.off()
 
 ### CAR[0,1] and CAR[0,10] Table, non corrected version
 cumphi = cumsum(phi[16:length(phi)])
-
 cumResult = t(apply(Result[,16:length(phi)],1,cumsum))
-cumphi_q005 = mapply(function(t) quantile(cumResult[,t], probs = .005), 1:ncol(cumResult))
-cumphi_q025 = mapply(function(t) quantile(cumResult[,t], probs = .025), 1:ncol(cumResult))
-cumphi_q975 = mapply(function(t) quantile(cumResult[,t], probs = .975), 1:ncol(cumResult))
-cumphi_q995 = mapply(function(t) quantile(cumResult[,t], probs = .995), 1:ncol(cumResult))
+cumphi_q = t(mapply(function(t) quantile(cumResult[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResult)))
 
-Table5 = data.frame("Estimate"=cumphi,"Q0.05"=cumphi_q005,"Q0.25"=cumphi_q025,
-                    "Q97.5"=cumphi_q975,"Q99.5"=cumphi_q995)
+Table5 = data.frame("Estimate"=cumphi,"Q"=cumphi_q)
 
 print("Event day 0")
 print(Table5[1,])
@@ -264,7 +252,7 @@ print(Table5[1,])
 print("Event day 10")
 print(Table5[11,])
 
-ATTdata = ts(cbind(cumphi_q005,cumphi_q025,cumphi,cumphi_q975,cumphi_q995),start=c(1), freq=1)
+ATTdata = ts(cbind(cumphi_q[,1:2],cumphi,cumphi_q[,3:4]),start=c(1), freq=1)
 ### C. Figure 3: Geithner connected firms effect vs. random permutations
 pdf("plot/GeithnerCAR_FisherTest.pdf", width=10, height=6)
 plot(ATTdata, plot.type="single",
@@ -282,13 +270,10 @@ dev.off()
 
 ### CAR[0,1] and CAR[0,10] Table, corrected version
 cumResult_C = t(apply(Result_C[,16:length(phi)],1,cumsum))
-cumphi_q005 = mapply(function(t) quantile(cumResult_C[,t], probs = .005), 1:ncol(cumResult))
-cumphi_q025 = mapply(function(t) quantile(cumResult_C[,t], probs = .025), 1:ncol(cumResult))
-cumphi_q975 = mapply(function(t) quantile(cumResult_C[,t], probs = .975), 1:ncol(cumResult))
-cumphi_q995 = mapply(function(t) quantile(cumResult_C[,t], probs = .995), 1:ncol(cumResult))
+cumphi_qC = t(mapply(function(t) quantile(cumResult_C[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResult)))
 
-Table5_Corrected = data.frame("Estimate"=cumphi,"Q0.05"=cumphi_q005,"Q0.25"=cumphi_q025,
-                    "Q97.5"=cumphi_q975,"Q99.5"=cumphi_q995)
+
+Table5_Corrected = data.frame("Estimate"=cumphi,"Q"=cumphi_qC)
 
 print("Event day 0")
 print(Table5_Corrected[1,])
@@ -296,7 +281,7 @@ print(Table5_Corrected[1,])
 print("Event day 10")
 print(Table5_Corrected[11,])
 
-ATTdata = ts(cbind(cumphi_q005,cumphi_q025,cumphi,cumphi_q975,cumphi_q995),start=c(1), freq=1)
+ATTdata = ts(cbind(cumphi_qC[,1:2],cumphi,cumphi_qC[,3:4]),start=c(1), freq=1)
 ### D. Figure 4: Geithner connected firms effect vs. random permutations
 pdf("plot/GeithnerCAR_FisherTestCorrected.pdf", width=10, height=6)
 plot(ATTdata, plot.type="single",
@@ -312,18 +297,21 @@ legend(1,-.15,
        lty=c(1,4,3))
 dev.off()
 
-library(stargazer)
+
 ToPrint = t(rbind(Table5[1,],Table5[11,],Table5_Corrected[1,],Table5_Corrected[11,]))
 stargazer(t(ToPrint))
 
+fileConn = file("plot/GeithnerTable5.txt")
+writeLines(stargazer(t(ToPrint)), fileConn)
+close(fileConn)
 
 ### .95 Confidence interval for CAR[0] and CAR[10]
-GeiCI0 = conf.interval.Geithner(d,as.matrix(y[GeiNomDate,]),t(y[PreTreatPeriod,]),V,lambda=.1,B=5000,alpha=.05)
+GeiCI0 = conf.interval.Geithner(d,as.matrix(y[GeiNomDate,]),t(y[PreTreatPeriod,]),V,lambda=lambda.opt.MSPE,B=5000,alpha=.05)
 fileConn = file("plot/outputCI0.txt")
 writeLines(paste(GeiCI0$c.int), fileConn)
 close(fileConn)
 
-GeiCI10 = conf.interval.Geithner(d,t(y[GeiNomDate:(GeiNomDate+10),]),t(y[PreTreatPeriod,]),V,lambda=.1,B=5000,alpha=.05)
+GeiCI10 = conf.interval.Geithner(d,t(y[GeiNomDate:(GeiNomDate+10),]),t(y[PreTreatPeriod,]),V,lambda=lambda.opt.MSPE,B=5000,alpha=.05)
 fileConn = file("plot/outputCI10.txt")
 writeLines(paste(GeiCI10$c.int), fileConn)
 close(fileConn)

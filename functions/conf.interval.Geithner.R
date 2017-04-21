@@ -27,7 +27,7 @@ conf.interval.Geithner <- function(d,y,X,V,lambda,B=10000,alpha=.05){
   Y0 = y[d==0,1]; Y1 = y[d==1,1];
   sol1 = regsynth(X0,X1,Y0,Y1,V,lambda)
   
-  theta.obs = CAR(d,y,X,sol1$Wsol)
+  theta.obs = CAR(d,apply(y,1,sum),X,sol1$Wsol)
   
   print(paste("Point estimate: ",theta.obs))
   
@@ -125,7 +125,6 @@ compute.pval<- function(y,d,dpermut,X,Wsol,C,theta.obs){
 
 CAR <- function(d,y,X,W){
   X0 = t(X[d==0,]); X1 = t(X[d==1,]);
-  phi = apply(y[d==1,] - W%*%y[d==0,],2,mean)
-  theta.obs = sum(phi)
+  theta.obs = apply(y[d==1] - W%*%y[d==0],2,mean)
   return(theta.obs)
 }

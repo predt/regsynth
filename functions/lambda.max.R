@@ -1,9 +1,10 @@
 #' Compute lambda.max
 #' 
 #' Function to compute the lambda.max, i.e. the minimal value of lambda
-#' that gives the Nearest-Neighbor solution.
+#' that gives the Nearest-neighbor solution.
 #' 
 #' WARNING: KKT are necessary but not sufficient in that case...
+#' WARNING: Does not work.
 #' 
 #' @param X0 is a p x n0 matrix
 #' @param X1 is a p x 1 vector

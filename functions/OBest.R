@@ -15,7 +15,7 @@
 #' @return Wsol is the n1 x n0 matrix of weights to compute counterfactual.
 #' @return y0_hat is the individual counterfactual for each treated unit.
 #' 
-#' @seealso \code{\link{matching}} for the computation of the mathing weights.
+#' @seealso \code{\link{matching}} for the computation of the matching weights.
 #' 
 #' @author Jeremy LHour
 
