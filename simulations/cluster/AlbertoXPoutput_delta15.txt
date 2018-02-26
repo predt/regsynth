@@ -1,0 +1,15 @@
+
+Statistics on lambda CV
+"Min."  0.01
+"1st Qu."  0.01
+"Median"  0.01
+"Mean"  0.32
+"3rd Qu."  0.21
+"Max."  4.91
+
+Nb. observations: 75
+Nb. replications: 500
+Order of Legendre polynomial: 15
+Noise standard deviation: 0.1
+
+2018-02-16 17:17:02

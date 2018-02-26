@@ -1,0 +1,20 @@
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Wed Feb 21 17:54:55 2018
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrr}
+  \hline
+ & bias & RMSE & MAE \\ 
+  \hline
+Penalized Synth fixed & 0.203 & 0.814 & 0.636 \\ 
+  Penalized Synth RMSE opt & 0.270 & 0.826 & 0.636 \\ 
+  Penalized Synth bias opt & 0.158 & 0.898 & 0.687 \\ 
+  Penalized Synth crit opt & 0.164 & 0.896 & 0.681 \\ 
+  Penalized Synth MAE opt & 0.284 & 0.818 & 0.627 \\ 
+   \hline
+\end{tabular}
+\end{table}
+Nb. observations: 30
+Nb. covariates: 5
+Nb. replications: 200
+2018-02-21 17:54:55
