@@ -1,0 +1,146 @@
+### Setup of Exp 5
+### Modified: 13/03/2018
+
+Exp5_Poly_setup <- function(R=1000,n1=100,n0,p,delta){
+  Results = matrix(ncol=12, nrow=R)
+  t_start = Sys.time()
+  pb = txtProgressBar(style = 3)
+  
+  for(r in 1:R){
+    ### 0. Generate data
+    data = PolyDGP(n1,n0,p,delta)
+    X = data$X; y = data$y; d = data$d
+  
+    X0 = t(X[d==0,]); X1 = t(X[d==1,]); V = diag(ncol(X))
+    Y0 = y[d==0]; Y1 = y[d==1]; n0 = sum(1-d)
+    
+    ### 1. Synthetic Control on mean of treated
+    M = matrix(apply(X1,1,mean), ncol=1)
+    AggSC = wATT(y,d,wsol(X0,M,V))
+    
+    ### Splitting the sample for cross-validation
+    uu=0 # reshuffle groups until no empty group
+    while(uu==0){
+      allocation = sample(1:K,n0,replace=T)
+      uu=min(mapply(function(x) sum(allocation==x),1:K))
+    }
+    
+    ### 2. NN Matching
+    ## A. K = 1
+    NN1 = matchest(X0,X1,Y0,Y1,V,m=1)
+    ## B. K = 5
+    NN5 = matchest(X0,X1,Y0,Y1,V,m=5)
+    ## C. K = Kopt
+    keeptauNN = matrix(nrow=10, ncol=length(Y0))
+    for(k in 1:K){
+      X1k = matrix(X0[,allocation==k], nrow=p)
+      X0k = matrix(X0[,allocation!=k], nrow=p)
+      Y1k = Y0[allocation==k]
+      Y0k = Y0[allocation!=k]
+      for(i in 1:10){
+        soli = matchest(X0k,X1k,Y0k,Y1k,V,m=i)
+        keeptauNN[i,allocation==k] = soli$CATT
+      }
+    }
+    
+    # The one that optimizes RMSE
+    curve.RMSE = apply(keeptauNN^2,1,sum)/n0
+    m.opt.RMSE = min(which(curve.RMSE==min(curve.RMSE)))
+    sol = matchest(X0,X1,Y0,Y1,V,m=m.opt.RMSE)
+    NN.opt.RMSE = sol$ATT
+    
+    # The one that optimizes bias
+    curve.bias = abs(apply(keeptauNN,1,sum)/n0)
+    m.opt.bias = min(which(curve.bias==min(curve.bias)))
+    sol = matchest(X0,X1,Y0,Y1,V,m=m.opt.bias)
+    NN.opt.bias = sol$ATT
+    
+    # The one that optimizes bias + variance
+    curve.crit = curve.bias + apply(keeptauNN,1,sd)
+    m.opt.crit = min(which(curve.crit==min(curve.crit)))
+    sol = matchest(X0,X1,Y0,Y1,V,m=m.opt.crit)
+    NN.opt.crit = sol$ATT
+    
+    # The one that optimizes MAE
+    curve.mae = apply(abs(keeptauNN),1,sum)/n0
+    m.opt.mae = min(which(curve.mae==min(curve.mae)))
+    sol = matchest(X0,X1,Y0,Y1,V,m=m.opt.mae)
+    NN.opt.mae = sol$ATT
+    
+    
+    ### 3. Regularized Synthetic Control
+    # A. lambda = .1
+    sol = regsynth(X0,X1,Y0,Y1,V,.1)
+    RSC.fixed = sol$ATT
+    
+    # B. lambda = lambdaopt
+    keeptau = matrix(nrow=length(lambda), ncol=length(Y0))
+    for(k in 1:K){
+      X1k = matrix(X0[,allocation==k], nrow=p)
+      X0k = matrix(X0[,allocation!=k], nrow=p)
+      Y1k = Y0[allocation==k]
+      Y0k = Y0[allocation!=k]
+      solpath = regsynthpath(X0k,X1k,Y0k,Y1k,V,lambda)
+      keeptau[,allocation==k] = solpath$CATT
+    }
+    
+    # The one that optimizes RMSE
+    curve.RMSE = apply(keeptau^2,1,sum)/n0
+    lambda.opt.RMSE = min(lambda[which(curve.RMSE==min(curve.RMSE))])
+    sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.RMSE)
+    RSC.opt.RMSE = sol$ATT
+    
+    # The one that optimizes bias
+    curve.bias = abs(apply(keeptau,1,sum)/n0)
+    lambda.opt.bias = min(lambda[which(curve.bias==min(curve.bias))])
+    sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.bias)
+    RSC.opt.bias = sol$ATT
+    
+    # The one that optimizes bias + variance
+    curve.crit = curve.bias + apply(keeptau,1,sd)
+    lambda.opt.crit = min(lambda[which(curve.crit==min(curve.crit))])
+    sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.crit)
+    RSC.opt.crit = sol$ATT
+    
+    # The one that optimizes MAE
+    curve.mae = apply(abs(keeptau),1,sum)/n0
+    lambda.opt.mae = min(lambda[which(curve.mae==min(curve.mae))])
+    sol = regsynth(X0,X1,Y0,Y1,V,lambda.opt.mae)
+    RSC.opt.mae = sol$ATT
+    
+    print("*** PROGRESS ***")
+    print(100*r/R)
+    
+    ### 4. ATT estimation
+    Results[r,] <- c(AggSC,NN1$ATT,NN5$ATT,
+                     NN.opt.RMSE,NN.opt.bias,NN.opt.crit,NN.opt.mae,
+                     RSC.fixed,
+                     RSC.opt.RMSE,RSC.opt.bias,RSC.opt.crit,RSC.opt.mae)
+    setTxtProgressBar(pb, r/R)
+   }
+  
+  close(pb)
+  print(Sys.time()-t_start)
+  
+  ### Compute bias and RMSE
+  StatDisplay <- data.frame()
+  StatDisplay[1:12,"bias"] = abs(apply(Results,2,mean))
+  StatDisplay[1:12,"RMSE"] = sqrt(apply(Results^2,2,mean))
+  StatDisplay[1:12,"MAE"] = apply(abs(Results),2,mean)
+  row.names(StatDisplay) = c("Aggregate Synth","1NN Matching","5NN Matching",
+                              "NN RMSE opt","NN bias opt","NN crit opt", "NN MAE opt",
+                              "Penalized Synth fixed",
+                              "Penalized Synth RMSE opt","Penalized Synth bias opt","Penalized Synth crit opt","Penalized Synth MAE opt")
+  print(StatDisplay)
+  
+  fileN = paste("simulations/Exp5_PolyDGP/output_n",n1,",p",p,",delta",delta,".txt",sep="")
+  
+  print.xtable(xtable(StatDisplay, digits=3),type="latex",file=fileN)
+  write(c(paste("Nb. treated:",n1),
+          paste("Nb. controls:",n0),
+          paste("Nb. covariates:",p),
+          paste("Degree poly:",delta),
+          paste("Nb. replications:",R),
+          paste(Sys.time())), fileN, append=TRUE)
+
+}

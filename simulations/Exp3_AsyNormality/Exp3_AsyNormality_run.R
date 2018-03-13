@@ -36,7 +36,7 @@ source("simulations/Exp3_AsyNormality/Exp3_AsyNormality_setup.R")
 set.seed(2121988)
 lambda = seq(0,2,.01) # set of lambda to be considered for optim
 
-xp = Exp3_setup(R=500,n1=20,n0=70,p=20,K=5)
+xp = Exp3_setup(R=5000,n1=20,n0=70,p=20,K=5)
 
 Results = xp
 R = nrow(Results)

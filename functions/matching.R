@@ -14,7 +14,7 @@
 
 matching <- function(X0,X1,V,m=3){
   n = ncol(X0)
-  Delta = matrix(t(X1)%*%V%*%X1, nrow=n, ncol=1) - 2*t(X0)%*%V%*%X1 + diag(t(X0)%*%V%*%X0) #Compute the distance
+  Delta = matrix(t(X1)%*%V%*%X1, nrow=n, ncol=1) - 2*t(X0)%*%V%*%X1 + diag(t(X0)%*%V%*%X0) # Compute the distance
   r = rank(Delta)
   
   # I take the first m
