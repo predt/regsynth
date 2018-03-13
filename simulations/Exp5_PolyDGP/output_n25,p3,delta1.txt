@@ -1,0 +1,29 @@
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Tue Mar 13 17:43:25 2018
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrr}
+  \hline
+ & bias & RMSE & MAE \\ 
+  \hline
+Aggregate Synth & 0.143 & 0.310 & 0.228 \\ 
+  1NN Matching & 0.018 & 0.612 & 0.517 \\ 
+  5NN Matching & 0.281 & 0.645 & 0.527 \\ 
+  NN RMSE opt & 0.141 & 0.640 & 0.516 \\ 
+  NN bias opt & 0.279 & 0.734 & 0.622 \\ 
+  NN crit opt & 0.254 & 0.694 & 0.563 \\ 
+  NN MAE opt & 0.149 & 0.644 & 0.524 \\ 
+  Penalized Synth fixed & 0.024 & 0.419 & 0.343 \\ 
+  Penalized Synth RMSE opt & 0.162 & 0.355 & 0.264 \\ 
+  Penalized Synth bias opt & 0.024 & 0.427 & 0.324 \\ 
+  Penalized Synth crit opt & 0.081 & 0.383 & 0.298 \\ 
+  Penalized Synth MAE opt & 0.166 & 0.362 & 0.269 \\ 
+   \hline
+\end{tabular}
+\end{table}
+Nb. treated: 25
+Nb. controls: 50
+Nb. covariates: 3
+Degree poly: 1
+Nb. replications: 10
+2018-03-13 17:43:25
