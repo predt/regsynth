@@ -20,10 +20,9 @@ PolyDGP <- function(n1=25,n0=50,p=3,delta=2){
   
   ### Create outcome function
   stdev = sqrt(p/(2*delta+1) - p/(1+delta)^2)
-  beta = rep(1,p)/stdev # normalize the part in X
-  y = (X^delta)%*%beta  + rnorm(n1+n0)
+  beta = rep(1,p)/stdev
   
-  return(list(X=X,
-              y=y,
-              d=d))
+  y = (X^delta)%*%beta + rnorm(n1+n0)
+  
+  return(list(X=X,y=y,d=d))
 }
