@@ -3,7 +3,7 @@
 ### Jeremy L Hour
 ### 12 octobre 2016
 
-setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
+setwd("/Users/jeremylhour/Documents/R/regsynth-master")
 rm(list=ls())
 
 ### 0. Settings
@@ -29,7 +29,7 @@ source("functions/regsynth.R")
 source("functions/regsynthpath.R")
 source("functions/TZero.R")
 source("functions/synthObj.R")
-source("simulations/MCXP_setup.R")
+source("simulations/Exp1_Perfm/Exp1_Perfm_setup.R")
 
 
 ### MC XP
