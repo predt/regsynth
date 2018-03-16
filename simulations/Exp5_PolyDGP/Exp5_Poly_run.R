@@ -4,7 +4,7 @@
 ### Jeremy L Hour
 ### 12 octobre 2016
 
-setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
+setwd("/Users/jeremylhour/Documents/R/regsynth-master")
 rm(list=ls())
 
 ### 0. Settings
@@ -25,7 +25,6 @@ source("functions/PolyDGP.R")
 source("functions/wATT.R")
 source("functions/matching.R")
 source("functions/matchest.R")
-source("functions/OBest.R")
 source("functions/regsynth.R")
 source("functions/regsynthpath.R")
 source("functions/TZero.R")
@@ -34,10 +33,11 @@ source("simulations/Exp5_PolyDGP/Exp5_Poly_setup.R")
 
 
 ### MC XP
-set.seed(2121988)
-lambda = seq(0,2,.01) # set of lambda to be considered for optim
+set.seed(12071990)
+lambda = seq(0,5,.005) # set of lambda to be considered for optim
 K = 5 # number of folds for optimal penalty level
 
+Exp5_Poly_setup(R=10,n1=10,n0=100,p=2,delta=2)
 
 for(n_xp in c(2,25,50,100)){
   for(p_xp in c(1,4,8)){
@@ -46,3 +46,11 @@ for(n_xp in c(2,25,50,100)){
     }
   }
 }
+
+
+# Problemes: (delta=2)
+# bias toujours positif (MAE =  bias)
+# performance du PenSynth bien inférieure
+# Soit un probleme de support commun ? Pb du grid search (pass assez de lambda?) ?
+# R2 is .5 for the treated but not for controls. Do the think to see where lambda CV converges
+# PenSynth works when not so many controls
