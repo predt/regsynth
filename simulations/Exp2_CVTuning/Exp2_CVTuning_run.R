@@ -71,10 +71,10 @@ AlbertoMCXP_setup <- function(R=1000,delta=1,n1=1,n0=50,sigma=1){
       keeptau[,allocation==k] = solpath$CATT
     }
     
-    ### Optimizes RMSE
-    curve.RMSE = apply(keeptau^2,1,sum)/n0
-    lambda.opt.RMSE = min(lambda[which(curve.RMSE==min(curve.RMSE))])
-    lambda.opt.record[r] = lambda.opt.RMSE
+    ### Optimizes MSE
+    curve.MSE = apply(keeptau^2,1,sum)/n0
+    lambda.opt.MSE = min(lambda[which(curve.MSE==min(curve.MSE))])
+    lambda.opt.record[r] = lambda.opt.MSE
   
     print("*** PROGRESS ***")
     print(100*r/R)
