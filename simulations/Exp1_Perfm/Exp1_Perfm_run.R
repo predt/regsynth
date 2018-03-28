@@ -3,7 +3,8 @@
 ### Jeremy L Hour
 ### 12 octobre 2016
 
-setwd("/Users/jeremylhour/Documents/R/regsynth-master")
+#setwd("/Users/jeremylhour/Documents/R/regsynth-master")
+setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 rm(list=ls())
 
 ### 0. Settings

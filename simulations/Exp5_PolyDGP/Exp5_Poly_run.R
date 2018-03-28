@@ -4,7 +4,8 @@
 ### Jeremy L Hour
 ### 12 octobre 2016
 
-setwd("/Users/jeremylhour/Documents/R/regsynth-master")
+#setwd("/Users/jeremylhour/Documents/R/regsynth-master")
+setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 rm(list=ls())
 
 ### 0. Settings
@@ -22,6 +23,7 @@ library("xtable")
 source("functions/wsol.R")
 source("functions/wsoll1.R")
 source("functions/PolyDGP.R")
+source("functions/LipschitzDGP.R")
 source("functions/wATT.R")
 source("functions/matching.R")
 source("functions/matchest.R")
@@ -30,14 +32,20 @@ source("functions/regsynthpath.R")
 source("functions/TZero.R")
 source("functions/synthObj.R")
 source("simulations/Exp5_PolyDGP/Exp5_Poly_setup.R")
+source("simulations/Exp5_PolyDGP/Exp5_Lipschitz_setup.R")
+source("simulations/Exp5_PolyDGP/Exp5_Short.R")
 
 
 ### MC XP
 set.seed(12071990)
-lambda = seq(0,5,.005) # set of lambda to be considered for optim
+lambda = c(seq(0.001,4,.02),1000) # set of lambda to be considered for optim
 K = 5 # number of folds for optimal penalty level
 
-Exp5_Poly_setup(R=10,n1=10,n0=100,p=2,delta=2)
+
+Exp5_Short(R=100,n1=100,n0=1000,p=4,delta=2)
+
+Exp5_Poly_setup(R=100,n1=100,n0=1000,p=4,delta=2)
+
 
 for(n_xp in c(2,25,50,100)){
   for(p_xp in c(1,4,8)){

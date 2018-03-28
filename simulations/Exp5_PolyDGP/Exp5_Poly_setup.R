@@ -19,11 +19,8 @@ Exp5_Poly_setup <- function(R=1000,n1=100,n0,p,delta){
     AggSC = wATT(y,d,wsol(X0,M,V))
     
     ### Splitting the sample for cross-validation
-    uu=0 # reshuffle groups until no empty group
-    while(uu==0){
-      allocation = sample(1:K,n0,replace=T)
-      uu=min(mapply(function(x) sum(allocation==x),1:K))
-    }
+    split = runif(n0)
+    allocation = as.numeric(cut(split,quantile(split,probs = seq(0, 1, 1/K)),include.lowest = T))  
     
     ### 2. NN Matching
     ## A. K = 1
@@ -31,7 +28,7 @@ Exp5_Poly_setup <- function(R=1000,n1=100,n0,p,delta){
     ## B. K = 5
     NN5 = matchest(X0,X1,Y0,Y1,V,m=5)
     ## C. K = Kopt
-    keeptauNN = matrix(nrow=10, ncol=length(Y0))
+    keeptauNN = matrix(nrow=10, ncol=n0)
     for(k in 1:K){
       X1k = matrix(X0[,allocation==k], nrow=p)
       X0k = matrix(X0[,allocation!=k], nrow=p)
@@ -74,7 +71,7 @@ Exp5_Poly_setup <- function(R=1000,n1=100,n0,p,delta){
     RSC.fixed = sol$ATT
     
     # B. lambda = lambdaopt
-    keeptau = matrix(nrow=length(lambda), ncol=length(Y0))
+    keeptau = matrix(nrow=length(lambda), ncol=n0)
     for(k in 1:K){
       X1k = matrix(X0[,allocation==k], nrow=p)
       X0k = matrix(X0[,allocation!=k], nrow=p)
