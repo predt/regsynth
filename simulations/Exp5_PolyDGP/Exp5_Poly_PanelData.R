@@ -1,26 +1,24 @@
-### Setup of Exp 5
-### Modified: 29/03/2018
+### Setup of Exp 5, Panel Data style
+### 29/03/2018
 
-Exp5_Poly_setup <- function(R=1000,n1=100,n0,p,delta){
+Exp5_Poly_PanelData <- function(R=1000,n1=100,n0,p,delta,a=.1,b=.9){
   Results = matrix(ncol=13, nrow=R)
   t_start = Sys.time()
   pb = txtProgressBar(style = 3)
   
   for(r in 1:R){
     ### 0. Generate data
-    data = PolyDGP(n1,n0,p,delta)
+    data = PanelPolyDGP(n1,n0,p,delta,a,b)
     X = data$X; y = data$y; d = data$d
-  
+    
     X0 = t(X[d==0,]); X1 = t(X[d==1,]); V = diag(ncol(X))
-    Y0 = y[d==0]; Y1 = y[d==1]; n0 = sum(1-d)
+    Y0 = c(y[d==0,2]); Y1 = c(y[d==1,2]); # True outcomes are at period 2 (col 2)
+    Y0t = c(y[d==0,1]); Y1t = c(y[d==1,1]);
+    n0 = sum(1-d) 
     
     ### 1. Synthetic Control on mean of treated
     M = matrix(apply(X1,1,mean), ncol=1)
-    AggSynth = wATT(y,d,wsoll1(X0,M,V))
-    
-    ### Splitting the sample for cross-validation
-    split = runif(n0)
-    allocation = as.numeric(cut(split,quantile(split,probs = seq(0, 1, 1/K)),include.lowest = T))  
+    AggSynth = wATT(y[,2],d,wsoll1(X0,M,V))
     
     ### 2. NN Matching
     ## A. K = 1
@@ -29,16 +27,10 @@ Exp5_Poly_setup <- function(R=1000,n1=100,n0,p,delta){
     NN5 = matchest(X0,X1,Y0,Y1,V,m=5)
     ## C. K = Kopt
     keeptauNN = matrix(nrow=10, ncol=n0)
-    for(k in 1:K){
-      X1k = matrix(X0[,allocation==k], nrow=p)
-      X0k = matrix(X0[,allocation!=k], nrow=p)
-      Y1k = Y0[allocation==k]
-      Y0k = Y0[allocation!=k]
       for(i in 1:10){
-        soli = matchest(X0k,X1k,Y0k,Y1k,V,m=i)
-        keeptauNN[i,allocation==k] = soli$CATT
+        sol = matchest(X0,X1,Y0t,Y1t,V,m=i)
+        keeptauNN[i,] = sol$CATT
       }
-    }
     
     # The one that optimizes MSE
     curve.MSE = apply(keeptauNN^2,1,sum)/n0
@@ -75,15 +67,9 @@ Exp5_Poly_setup <- function(R=1000,n1=100,n0,p,delta){
     Synth.fixed = sol$ATT
     
     # C. lambda = lambdaopt
-    keeptau = matrix(nrow=length(lambda), ncol=n0)
-    for(k in 1:K){
-      X1k = matrix(X0[,allocation==k], nrow=p)
-      X0k = matrix(X0[,allocation!=k], nrow=p)
-      Y1k = Y0[allocation==k]
-      Y0k = Y0[allocation!=k]
-      solpath = regsynthpath(X0k,X1k,Y0k,Y1k,V,lambda,bar=T)
-      keeptau[,allocation==k] = solpath$CATT
-    }
+    solpath = regsynthpath(X0,X1,Y0t,Y1t,V,lambda,bar=T)
+    keeptau = solpath$CATT
+
     
     # The one that optimizes MSE
     curve.MSE = apply(keeptau^2,1,sum)/n0
@@ -118,7 +104,7 @@ Exp5_Poly_setup <- function(R=1000,n1=100,n0,p,delta){
                      Synth.NoPen,Synth.fixed,
                      Synth.opt.MSE,Synth.opt.bias,Synth.opt.crit,Synth.opt.MAE)
     setTxtProgressBar(pb, r/R)
-   }
+  }
   
   close(pb)
   print(Sys.time()-t_start)
@@ -129,12 +115,12 @@ Exp5_Poly_setup <- function(R=1000,n1=100,n0,p,delta){
   StatDisplay[1:13,"MSE"] = apply(Results^2,2,mean)
   StatDisplay[1:13,"MAE"] = apply(abs(Results),2,mean)
   row.names(StatDisplay) = c("Aggregate Synth","1NN Matching","5NN Matching",
-                              "NN MSE opt","NN bias opt","NN crit opt", "NN MAE opt",
-                              "Synth No Pen","Synth fixed",
-                              "Synth MSE opt","Synth bias opt","Synth crit opt","Synth MAE opt")
+                             "NN MSE opt","NN bias opt","NN crit opt", "NN MAE opt",
+                             "Synth No Pen","Synth fixed",
+                             "Synth MSE opt","Synth bias opt","Synth crit opt","Synth MAE opt")
   print(StatDisplay)
   
-  fileN = paste("simulations/Exp5_PolyDGP/output_n",n1,",p",p,",delta",delta,".txt",sep="")
+  fileN = paste("simulations/Exp5_PolyDGP/Paneloutput_n",n1,",p",p,",delta",delta,".txt",sep="")
   
   print.xtable(xtable(StatDisplay, digits=3),type="latex",file=fileN)
   write(c(paste("Nb. treated:",n1),
@@ -143,5 +129,5 @@ Exp5_Poly_setup <- function(R=1000,n1=100,n0,p,delta){
           paste("Degree poly:",delta),
           paste("Nb. replications:",R),
           paste(Sys.time())), fileN, append=TRUE)
-
+  
 }

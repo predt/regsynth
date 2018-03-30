@@ -26,7 +26,9 @@ y0 = sum(x0.^r,1)'/v+randn(n0,1);
 
 H = 2*(x0'*x0);
 
-options = optimoptions('quadprog','StepTolerance',1e-10,'OptimalityTolerance',1e-10,'MaxIterations',2000,'Display','off');
+% options = optimoptions('quadprog','StepTolerance',1e-10,'OptimalityTolerance',1e-10,'MaxIterations',2000,'Display','off');
+
+options = optimoptions('quadprog','TolFun',1e-10,'TolX',1e-10,'MaxIter',2000,'Display','off');
 
 Lambda = 0.01:0.01:1;
 MSE = zeros(length(Lambda),1);
@@ -49,6 +51,8 @@ end
 plot(Lambda,MSE);
 [minimum,I]=min(MSE);
 lambda = Lambda(I)
+
+lambda = .01
 
 T = 1000;
 MSEp = zeros(T,1); MSEnp = zeros(T,1); MSEm = zeros(T,1);

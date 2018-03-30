@@ -23,7 +23,7 @@ library("xtable")
 source("functions/wsol.R")
 source("functions/wsoll1.R")
 source("functions/PolyDGP.R")
-source("functions/LipschitzDGP.R")
+source("functions/PanelPolyDGP.R")
 source("functions/wATT.R")
 source("functions/matching.R")
 source("functions/matchest.R")
@@ -33,18 +33,26 @@ source("functions/TZero.R")
 source("functions/synthObj.R")
 source("simulations/Exp5_PolyDGP/Exp5_Poly_setup.R")
 source("simulations/Exp5_PolyDGP/Exp5_Lipschitz_setup.R")
+source("simulations/Exp5_PolyDGP/Exp5_Poly_PanelData.R")
 source("simulations/Exp5_PolyDGP/Exp5_Short.R")
 
 
 ### MC XP
 set.seed(12071990)
 lambda = c(seq(0.001,4,.02),1000) # set of lambda to be considered for optim
-K = 5 # number of folds for optimal penalty level
+
+Exp5_Poly_PanelData(R=10,n1=10,n0=100,p=4,delta=2,a=.1,b=.9)
 
 
-Exp5_Short(R=100,n1=100,n0=1000,p=4,delta=2)
+for(p_xp in c(2,4,8)){
+  for(delta_xp in c(2,4,8)){
+    Exp5_Poly_PanelData(R=1000,n1=100,n0=500,p=p_xp,delta=delta_xp)
+  }
+}
 
-Exp5_Poly_setup(R=100,n1=100,n0=1000,p=4,delta=2)
+
+#K = 5 # number of folds for optimal penalty level
+#Exp5_Poly_setup(R=100,n1=100,n0=1000,p=4,delta=2)
 
 
 for(n_xp in c(2,25,50,100)){

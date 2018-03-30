@@ -11,7 +11,7 @@
 
 wsoll1 <- function(X0,X1,V,pen=0.0){
   n = ncol(X0)
-  Delta = matrix(t(X1)%*%V%*%X1, nrow=n, ncol=1) - 2*t(X0)%*%V%*%X1 + diag(t(X0)%*%V%*%X0)
+  Delta = diag(t(X0 - matrix(rep(1,n),ncol=n)%x%X1)%*%V%*%(X0 - matrix(rep(1,n),ncol=n)%x%X1))
   
   P = 2*t(X0)%*%V%*%X0
   q = t(-2*t(X0)%*%V%*%X1 + pen*Delta)

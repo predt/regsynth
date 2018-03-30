@@ -90,8 +90,7 @@ Exp5_Short <- function(R=1000,n1=100,n0,p,delta){
   StatDisplay[1:8,"MAE"] = apply(abs(Results),2,mean)
   row.names(StatDisplay) = c("Aggregate Synth","1NN Matching","5NN Matching",
                              "NN MSE opt","NN bias opt","NN crit opt", "NN MAE opt",
-                             "PenSynth fixed",
-                             "PenSynth MSE opt","PenSynth bias opt","PenSynth crit opt","PenSynth MAE opt")
+                             "PenSynth fixed")
   print(StatDisplay)
   
   fileN = paste("simulations/Exp5_PolyDGP/output_n",n1,",p",p,",delta",delta,".txt",sep="")

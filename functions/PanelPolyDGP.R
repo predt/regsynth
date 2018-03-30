@@ -1,7 +1,7 @@
-#' DGP for Exp 5 
-#' See e-mail from 9/3/2018 by Alberto
+#' DGP for Exp 5, Panel Data version
 #' 
-#' CREATED: 10/3/2018
+#' CREATED: 29/03/2018
+#' EDITED: 30/03/2018
 #' 
 #' @param n1 number of treated
 #' @param n0 number of non treated
@@ -9,10 +9,11 @@
 #' @param delta is the order of the polynomial (should be an integer)
 #' @param a is the inf bound for treated support
 #' @param b is the sup bound for treated support
+#' @param TP is the number of periods (should be an integer)
 #' 
 #' @author Jeremy LHour
 
-PolyDGP <- function(n1=25,n0=50,p=3,delta=2,a=.1,b=.9){
+PanelPolyDGP <- function(n1=25,n0=50,p=3,delta=2,a=.1,b=.9,TP=2){
   d = c(rep(1,n1),rep(0,n0))
   X = rbind(matrix(runif(n1*p,min=a,max=b), ncol=p, nrow=n1),
             matrix(runif(n0*p), ncol=p, nrow=n0))
@@ -24,7 +25,7 @@ PolyDGP <- function(n1=25,n0=50,p=3,delta=2,a=.1,b=.9){
   stdev = CNorm(p,delta,a,b)
   beta = rep(1,p)/stdev
   
-  y = (X^delta)%*%beta + rnorm(n1+n0)
+  y = matrix(rep(1,TP),ncol=TP) %x% ((X^delta)%*%beta) + matrix(rnorm(TP*(n1+n0)), ncol=TP, nrow=n0+n1)
   
   return(list(X=X,y=y,d=d))
 }
