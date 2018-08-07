@@ -1,0 +1,10 @@
+Row	RMSEindiv	RMSEatt	Bias
+PenSynth	1.2974	0.5562	0.3690
+NoPenSynth	1.2917	0.6238	0.4829
+Matching	1.7323	0.6012	0.2044
+OptMatching	1.2950	0.4894	0.2240
+
+PenSynth_bc	1.1898	0.4059	0.0013
+Synth_bc	1.1677	0.4013	0.0020
+Matching_bc	1.4155	0.4710	0.0025
+OptMatching_bc	1.1664	0.4032	0.0038
