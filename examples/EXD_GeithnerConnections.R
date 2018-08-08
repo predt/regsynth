@@ -31,6 +31,7 @@ source("functions/synthObj.R")
 source("functions/perm.test.R")
 source("functions/conf.interval.R")
 source("functions/conf.interval.Geithner.R")
+source("functions/bias.R")
 
 ### 0. Loading data
 data = readMat("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth/data/GeithnerConnexions/Matlab Files/Data.mat")
@@ -140,21 +141,22 @@ colnames(Psol) = rownames(X[d==0,])
 apply(Psol>0,1,sum)
 print("mean nb. active control units"); mean(apply(Psol>0,1,sum))
 
-# Balance check on Z
-apply(X[d==1,c(8,9,10)],2,mean)
-apply(Psol%*%as.matrix(X[d==0,c(8,9,10)]),2,mean)
-
 # Compute the statistics (see paper)
 TestPeriod = (GeiNomDate-15):(GeiNomDate+30)
 phiP = apply((y[TestPeriod,d==1] - y[TestPeriod,d==0]%*%t(Psol)),1,mean)
+phiP_bc = phiP - apply(bias(X0,X1,y[TestPeriod,],d,Psol),1,mean) # bias corrected
 
 sigma = sqrt(apply((X1 - X0%*%t(Psol))^2,2,mean)) # Goodness of fit for each treated over pre-treatment period, used in the original paper
 sigma_cutoff = mean(sigma) # for later use: correction during Fisher test
+
 
 ## 4.2 Non-Penalized Synthetic Control
 NPsol = estval$Wsol[1,,]
 colnames(NPsol) = rownames(X[d==0,])
 phiNP = apply((y[TestPeriod,d==1] - y[TestPeriod,d==0]%*%t(NPsol)),1,mean)
+
+sigma = sqrt(apply((X1 - X0%*%t(NPsol))^2,2,mean))
+sigma_cutoffNP = mean(sigma) 
 
 # Number of active controls
 apply(NPsol>0,1,sum)
@@ -205,7 +207,7 @@ for(r in 1:R){
   # Corrected
   sigmastar = sqrt(apply((X1star - X0star%*%t(NPsolstar))^2,2,mean))
   omegastar_C = rep(1,sum(d))
-  omegastar_C[sigmastar>alpha*sigma_cutoff] = 0
+  omegastar_C[sigmastar>alpha*sigma_cutoffNP] = 0
   omegastar_C = omegastar_C/sum(omegastar_C)
   ResultNP_C[r,] = (y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(NPsolstar))%*%omegastar_C
   
