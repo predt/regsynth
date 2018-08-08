@@ -1,7 +1,7 @@
 ### EXAMPLE 4: Geithner connections
 ### Jeremy L Hour
 ### 11 avril 2017
-### EDITED: 7 juin 2017
+### EDITED: 8/8/2018
 
 setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 
@@ -36,7 +36,7 @@ source("functions/conf.interval.Geithner.R")
 data = readMat("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth/data/GeithnerConnexions/Matlab Files/Data.mat")
 
 
-### 1. Data cleaning and setting
+### 1. Data Cleaning and Setting
 ticker = data$ticker # firms tickers
 
 # collect names and tickers
@@ -83,8 +83,8 @@ y = y[,corrCiti<corrCitiTr]
 # Treatment variable
 d = X[,ConnMeasure] > 0 # one or more meetings in 2007-08
 
-# What are the treated?
-print("Treated frim and number of meetings in 2007-08")
+# Who are the treated?
+print("Treated firms and number of meetings in 2007-08")
 cbind(FirmID[match(rownames(X[d==1,]), FirmID[,1]),2], X[d==1,ConnMeasure])
 
 # Control variable other than pre-treatment outcomes, useless for now
@@ -95,7 +95,7 @@ cbind(FirmID[match(rownames(X[d==1,]), FirmID[,1]),2], X[d==1,ConnMeasure])
 Z = cbind(X[,c(8,9,10)], X[,c(8,9,10)]^2, X[,c(8,9,10)]^3)
 
 
-### 2. Some descriptive statistics (TO BE CONTINUED ?)
+### 2. Some Descriptive Statistics (TO BE CONTINUED ?)
 ConnReturns = ts(apply(y[PreTreatPeriod,d==1],1,mean),start=c(1), freq=365)
 NConnReturns = ts(apply(y[PreTreatPeriod,d==0],1,mean),start=c(1), freq=365)
 
@@ -112,7 +112,7 @@ Y0 = y[GeiNomDate+1,d==0]; Y1 = y[GeiNomDate+1,d==1]
 V = diag(1/diag(var(t(y[PreTreatPeriod,])))) # Reweight by inverse of variance
 
 
-lambda = seq(0,1.5,.1) # sequence of lambdas to test
+lambda = c(seq(0,0.1,.0025),seq(0.1,2,.1)) # sequence of lambdas to test
 estval = regsynthpath(X0,X1,Y0,Y1,V,lambda,tol=1e-6)
 MSPE = vector(length=length(lambda))
 
@@ -131,37 +131,45 @@ dev.off()
 
 
 ### 4. Estimation
-Wsol = estval$Wsol[which(MSPE==min(MSPE)),,]
-colnames(Wsol) = rownames(X[d==0,])
 
-### Calcul non necessaire
-S_j = apply(Wsol,2,sum)
+## 4.1 Penalized Synthetic Control
+Psol = estval$Wsol[which(MSPE==min(MSPE)),,]
+colnames(Psol) = rownames(X[d==0,])
 
 # Number of active controls
-apply(Wsol>0,1,sum)
+apply(Psol>0,1,sum)
+print("mean nb. active control units"); mean(apply(Psol>0,1,sum))
 
 # Balance check on Z
 apply(X[d==1,c(8,9,10)],2,mean)
-apply(Wsol%*%as.matrix(X[d==0,c(8,9,10)]),2,mean)
+apply(Psol%*%as.matrix(X[d==0,c(8,9,10)]),2,mean)
 
 # Compute the statistics (see paper)
 TestPeriod = (GeiNomDate-15):(GeiNomDate+30)
-phi = apply((y[TestPeriod,d==1] - y[TestPeriod,d==0]%*%t(Wsol)),1,mean)
+phiP = apply((y[TestPeriod,d==1] - y[TestPeriod,d==0]%*%t(Psol)),1,mean)
 
-sigma = sqrt(apply((X1 - X0%*%t(Wsol))^2,2,mean)) # Goodness of fit for each treated over pre-treatment period, used in the original paper
+sigma = sqrt(apply((X1 - X0%*%t(Psol))^2,2,mean)) # Goodness of fit for each treated over pre-treatment period, used in the original paper
 sigma_cutoff = mean(sigma) # for later use: correction during Fisher test
 
-# Shows the path of abnormal returns
-plot(phi,type="l")
+## 4.2 Non-Penalized Synthetic Control
+NPsol = estval$Wsol[1,,]
+colnames(NPsol) = rownames(X[d==0,])
+phiNP = apply((y[TestPeriod,d==1] - y[TestPeriod,d==0]%*%t(NPsol)),1,mean)
+
+# Number of active controls
+apply(NPsol>0,1,sum)
+print("mean nb. active control units"); mean(apply(NPsol>0,1,sum))
 
 
 ### 5. Fisher Test of No-Effect Assumption (C=0)
-set.seed(3101990)
+set.seed(1207990)
 R = 5000 # Number of replications
-alpha = sqrt(3) # correction cut-off (see paper)
-lambda.set = seq(0,1,.1) # sequence of lambdas to test
-Result = matrix(nrow=R, ncol=length(TestPeriod))
-Result_C = matrix(nrow=R, ncol=length(TestPeriod))
+alpha = sqrt(3) # correction cut-off (see original paper)
+lambda.set = c(seq(0,0.1,.01),seq(.2,1.5,.1)) # sequence of lambdas to test
+ResultP = matrix(nrow=R, ncol=length(TestPeriod))
+ResultP_C = matrix(nrow=R, ncol=length(TestPeriod))
+ResultNP = matrix(nrow=R, ncol=length(TestPeriod))
+ResultNP_C = matrix(nrow=R, ncol=length(TestPeriod))
 t_start = Sys.time()
 pb = txtProgressBar(style = 3)
 for(r in 1:R){
@@ -176,31 +184,85 @@ for(r in 1:R){
     MSPE[k] = mean(apply((y[324:354,dstar==1] - y[324:354,dstar==0]%*%t(estval$Wsol[k,,]))^2,2,mean))
   }
   
-  ### COLLECT W(lambda.opt)
-  Wsolstar = estval$Wsol[which(MSPE==min(MSPE)),,]
+  Wsolstar = estval$Wsol[which(MSPE==min(MSPE)),,] # COLLECT W(lambda.opt)
   
   # Not corrected
-  Result[r,] = apply((y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(Wsolstar)),1,mean)
+  ResultP[r,] = apply((y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(Wsolstar)),1,mean)
   
   # Corrected
   sigmastar = sqrt(apply((X1star - X0star%*%t(Wsolstar))^2,2,mean))
   omegastar_C = rep(1,sum(d))
   omegastar_C[sigmastar>alpha*sigma_cutoff] = 0
   omegastar_C = omegastar_C/sum(omegastar_C)
-  Result_C[r,] = (y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(Wsolstar))%*%omegastar_C
+  ResultP_C[r,] = (y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(Wsolstar))%*%omegastar_C
+  
+  ### NON-PENALIZED, LAMBDA=0 ###
+  NPsolstar = estval$Wsol[1,,]
+  
+  # Not corrected
+  ResultNP[r,] = apply((y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(NPsolstar)),1,mean)
+  
+  # Corrected
+  sigmastar = sqrt(apply((X1star - X0star%*%t(NPsolstar))^2,2,mean))
+  omegastar_C = rep(1,sum(d))
+  omegastar_C[sigmastar>alpha*sigma_cutoff] = 0
+  omegastar_C = omegastar_C/sum(omegastar_C)
+  ResultNP_C[r,] = (y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(NPsolstar))%*%omegastar_C
   
   setTxtProgressBar(pb, r/R)
 }
 close(pb)
 print(Sys.time()-t_start)
 
+
+## 5.1 Tables
+
+# Penalized / Non-Corrected
+cumphiP = cumsum(phiP[16:length(phiP)])
+cumResultP = t(apply(ResultP[,16:length(phiP)],1,cumsum))
+cumphi_q = t(mapply(function(t) quantile(cumResultP[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResultP)))
+
+TableP = data.frame("Estimate"=cumphiP,"Q"=cumphi_q)
+
+print("Event day 0"); print(TableP[1,])
+print("Event day 10"); print(TableP[11,])
+
+# Penalized / Corrected
+cumResult_C = t(apply(ResultP_C[,16:length(phiP)],1,cumsum))
+cumphi_qC = t(mapply(function(t) quantile(cumResult_C[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResult)))
+
+TableP_Corrected = data.frame("Estimate"=cumphiP,"Q"=cumphi_qC)
+
+# Non-Penalized / Non-Corrected
+cumphiNP = cumsum(phiNP[16:length(phiNP)])
+cumResultNP = t(apply(ResultNP[,16:length(phiNP)],1,cumsum))
+cumphi_q = t(mapply(function(t) quantile(cumResultNP[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResultNP)))
+
+TableNP = data.frame("Estimate"=cumphiNP,"Q"=cumphi_q)
+
+# Non-Penalized / Corrected
+cumResult_C = t(apply(ResultNP_C[,16:length(phiNP)],1,cumsum))
+cumphi_qC = t(mapply(function(t) quantile(cumResult_C[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResult)))
+
+TableNP_Corrected = data.frame("Estimate"=cumphiNP,"Q"=cumphi_qC)
+
+ToPrint = t(rbind(TableP[1,],TableP[11,],TableP_Corrected[1,],TableP_Corrected[11,],
+                  TableNP[1,],TableNP[11,],TableNP_Corrected[1,],TableNP_Corrected[11,]))
+colnames(ToPrint) = c("Penalized, NC, Day 0","Penalized, NC, Day 10","Penalized, C, Day 0","Penalized, C, Day 10",
+                      "Non-Penalized, NC, Day 0","Non-Penalized, NC, Day 10","Non-Penalized, C, Day 0","Non-Penalized, C, Day 10")
+stargazer(t(ToPrint))
+
+fileConn = file("plot/GeithnerResultTable.txt")
+writeLines(stargazer(t(ToPrint)), fileConn)
+close(fileConn)
+
 ### A. Not corrected
 
 # Compute .025 and .975 quantiles of CAR for each date
-phi_q = t(mapply(function(t) quantile(Result[,t], probs = c(.005,.025,.975,.995)), 1:length(TestPeriod)))
-ATTdata = ts(cbind(phi_q[,1:2],phi,phi_q[,3:4]),start=c(-15), freq=1)
+phi_q = t(mapply(function(t) quantile(ResultP[,t], probs = c(.005,.025,.975,.995)), 1:length(TestPeriod)))
+ATTdata = ts(cbind(phi_q[,1:2],phiP,phi_q[,3:4]),start=c(-15), freq=1)
 
-### Figure 2: Geithner connected firms effect vs. random permutations
+### Figure 2: Geithner connected firms effect vs. random permutations (Currently in paper)
 pdf("plot/GeithnerAR_FisherTest.pdf", width=10, height=6)
 plot(ATTdata, plot.type="single",
      col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
@@ -220,98 +282,8 @@ legend(-15,-.075,
        lty=c(1,4,3))
 dev.off()
 
-### B. Corrected
-phi_qC = t(mapply(function(t) quantile(Result_C[,t], probs = c(.005,.025,.975,.995)), 1:length(TestPeriod)))
-ATTdataC = ts(cbind(phi_qC[,1:2],phi,phi_qC[,3:4]),start=c(-15), freq=1)
 
-### Figure 3: Geithner connected firms effect vs. random permutations, corrected
-pdf("plot/GeithnerAR_FisherTestCorrected.pdf", width=10, height=7)
-plot(ATTdataC, plot.type="single",
-     col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
-     lty=c(3,4,1,4,3),xlab="Day", ylab="AR, in pp",
-     ylim=c(-.1,.1),
-     main="")
-abline(h=0,
-       lty=2,col="grey")
-lim <- par("usr")
-rect(0, lim[3], lim[2], lim[4], col = rgb(0.5,0.5,0.5,1/4))
-axis(1) ## add axes back
-axis(2)
-box() 
-legend(0.5,-.065,
-       legend=c("Estimate", ".95 confidence bands of Fisher distrib.",".99 confidence bands of Fisher distrib."),
-       col=c("firebrick","firebrick"), lwd=c(2,1,1),
-       lty=c(1,4,3))
-dev.off()
-
-
-### CAR[0,1] and CAR[0,10] Table, non corrected version
-cumphi = cumsum(phi[16:length(phi)])
-cumResult = t(apply(Result[,16:length(phi)],1,cumsum))
-cumphi_q = t(mapply(function(t) quantile(cumResult[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResult)))
-
-Table5 = data.frame("Estimate"=cumphi,"Q"=cumphi_q)
-
-print("Event day 0")
-print(Table5[1,])
-
-print("Event day 10")
-print(Table5[11,])
-
-ATTdata = ts(cbind(cumphi_q[,1:2],cumphi,cumphi_q[,3:4]),start=c(1), freq=1)
-### C. Figure 3: Geithner connected firms effect vs. random permutations
-pdf("plot/GeithnerCAR_FisherTest.pdf", width=10, height=6)
-plot(ATTdata, plot.type="single",
-     col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
-     lty=c(3,4,1,4,3),xlab="Day", ylab="CAR, in pp",
-     ylim=c(-.25,.25),
-     main="Cumulative Abnormal Returns (CAR) for True Treatment vs. Random Permutations")
-abline(h=0,
-       lty=2,col="grey")
-legend(1,-.15,
-       legend=c("Estimate", ".95 confidence bands of Fisher distrib.",".99 confidence bands of Fisher distrib."),
-       col=c("firebrick","firebrick"), lwd=c(2,1,1),
-       lty=c(1,4,3))
-dev.off()
-
-### CAR[0,1] and CAR[0,10] Table, corrected version
-cumResult_C = t(apply(Result_C[,16:length(phi)],1,cumsum))
-cumphi_qC = t(mapply(function(t) quantile(cumResult_C[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResult)))
-
-
-Table5_Corrected = data.frame("Estimate"=cumphi,"Q"=cumphi_qC)
-
-print("Event day 0")
-print(Table5_Corrected[1,])
-
-print("Event day 10")
-print(Table5_Corrected[11,])
-
-ATTdata = ts(cbind(cumphi_qC[,1:2],cumphi,cumphi_qC[,3:4]),start=c(1), freq=1)
-### D. Figure 4: Geithner connected firms effect vs. random permutations
-pdf("plot/GeithnerCAR_FisherTestCorrected.pdf", width=10, height=6)
-plot(ATTdata, plot.type="single",
-     col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
-     lty=c(3,4,1,4,3),xlab="Day", ylab="CAR, in pp",
-     ylim=c(-.25,.25),
-     main="Cumulative Abnormal Returns (CAR) for True Treatment vs. Random Permutations, \n Corrected Inference")
-abline(h=0,
-       lty=2,col="grey")
-legend(1,-.15,
-       legend=c("Estimate", ".95 confidence bands of Fisher distrib.",".99 confidence bands of Fisher distrib."),
-       col=c("firebrick","firebrick"), lwd=c(2,1,1),
-       lty=c(1,4,3))
-dev.off()
-
-
-ToPrint = t(rbind(Table5[1,],Table5[11,],Table5_Corrected[1,],Table5_Corrected[11,]))
-stargazer(t(ToPrint))
-
-fileConn = file("plot/GeithnerTable5.txt")
-writeLines(stargazer(t(ToPrint)), fileConn)
-close(fileConn)
-
-### .95 Confidence interval for CAR[0] and CAR[10]
+### 6. .95 Confidence interval for CAR[0] and CAR[10]
 GeiCI0 = conf.interval.Geithner(d,as.matrix(y[GeiNomDate,]),t(y[PreTreatPeriod,]),V,lambda=lambda.opt.MSPE,B=5000,alpha=.05)
 fileConn = file("plot/outputCI0.txt")
 writeLines(paste(GeiCI0$c.int), fileConn)
