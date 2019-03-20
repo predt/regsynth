@@ -28,7 +28,7 @@ source("functions/synthObj.R")
 
 
 ### 0. Parameters
-R = 10000 # nb simulations
+R = 1000 # nb simulations
 n1 = 10 # nb treated
 n0 = 20 # nb controls
 p = 20

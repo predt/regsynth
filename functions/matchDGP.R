@@ -7,7 +7,7 @@
 #' @param rho parametrizes the covariance between the covariates
 #' @param a is the treatment effect value
 #' 
-#' @autor Jeremy LHour
+#' @author Jeremy LHour
 
 matchDGP <- function(n=20,p=2,Ry=.5,Rd=.2,rho=.5,a=0){
   

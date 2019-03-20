@@ -4,7 +4,7 @@
 #' Returns R ATET estimates on reshuffled samples
 #' and compute the p-value for sharp null hypothesis with constant C.
 #' Used to construct confidence intervals.
-#' Laste edit: 14 avril 2017
+#' Laste edit: 20 mars 2019
 #' 
 #' @param d is a vector of dimension n (treatment indicator)
 #' @param X is a matrix of dimension n x p
@@ -12,7 +12,7 @@
 #' @param V is a p x p matrix of weights
 #' @param lambda is a positive penalty level
 #' @param B is the number of draws for computing p-values
-#' @param alpha is the required confidence level
+#' @param alpha is the required confidence level for the CI
 #' 
 #' @author Jeremy LHour
 
@@ -47,22 +47,22 @@ conf.interval <- function(d,y,X,V,lambda,B=10000,alpha=.05){
   b = max(res0$theta.reshuffled); eps = .01
   repeat{
     res0 = compute.pval(y,d,dpermut,Wsol,C=b,theta.obs)
-    if(res0$p.val < alpha/2) break
+    if(res0$p.val < alpha) break
     res1 = compute.pval(y,d,dpermut,Wsol,C=b+eps,theta.obs)
-    b = b + (alpha/2 - res0$p.val)*eps/(res1$p.val-res0$p.val)
+    b = b + (alpha - res0$p.val)*eps/(res1$p.val-res0$p.val)
   }
 
   a = theta.obs
-  f_a = 1-alpha/2
+  f_a = 1-alpha
   repeat{
     m = (a+b)/2
     res = compute.pval(y,d,dpermut,Wsol,C=m,theta.obs)
-    f_m = res$p.val - alpha/2
+    f_m = res$p.val - alpha
     
     if(f_m*f_a > 0){
       a = m
       res = compute.pval(y,d,dpermut,Wsol,C=a,theta.obs)
-      f_a = res$p.val - alpha/2
+      f_a = res$p.val - alpha
     } else {
       b = m
     }
@@ -75,23 +75,23 @@ conf.interval <- function(d,y,X,V,lambda,B=10000,alpha=.05){
   a = min(res0$theta.reshuffled)
   repeat{
     res0 = compute.pval(y,d,dpermut,Wsol,C=a,theta.obs)
-    if(res0$p.val < alpha/2) break
+    if(res0$p.val < alpha) break
     res1 = compute.pval(y,d,dpermut,Wsol,C=a-eps,theta.obs)
-    a = a + (alpha/2 - res0$p.val)*eps/(res0$p.val-res1$p.val)
+    a = a + (alpha - res0$p.val)*eps/(res0$p.val-res1$p.val)
     print(a)
   }
   
   b = theta.obs
-  f_b = 1-alpha/2
+  f_b = 1-alpha
   repeat{
     m = (a+b)/2
     res = compute.pval(y,d,dpermut,Wsol,C=m,theta.obs)
-    f_m = res$p.val - alpha/2
+    f_m = res$p.val - alpha
     
     if(f_m*f_b > 0){
       b = m
       res = compute.pval(y,d,dpermut,Wsol,C=b,theta.obs)
-      f_b = res$p.val - alpha/2
+      f_b = res$p.val - alpha
     } else {
       a = m
     }

@@ -12,7 +12,7 @@
 #' @param a is the treatment effect value
 #' @param sigma is the standard deviation of the error terms
 #' 
-#' @autor Jeremy LHour
+#' @author Jeremy LHour
 
 AlbertoDGP <- function(n=20,p=1,delta=1,prop=.1,rho=.5,a=0,sigma=1){
   library("MASS")

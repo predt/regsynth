@@ -1,7 +1,8 @@
 ### EXAMPLE 4: Geithner connections
 ### Jeremy L Hour
 ### 11 avril 2017
-### EDITED: 8/8/2018
+### EDITED: 10/8/2018
+### PARALLELIZED VERSION
 
 setwd("//ulysse/users/JL.HOUR/1A_These/A. Research/RegSynthProject/regsynth")
 
@@ -16,6 +17,8 @@ library("reshape2")
 library("LowRankQP")
 library("R.matlab")
 library("stargazer")
+library("foreach")
+library("doParallel")
 
 ### Load user functions
 source("functions/wsol.R")
@@ -123,7 +126,7 @@ for(k in 1:length(lambda)){
 lambda.opt.MSPE = min(lambda[which(MSPE==min(MSPE))]) # Optimal lambda is .1-.2
 
 ### Figure 1: MSPE
-pdf("plot/Geithner_MSPE.pdf", width=6, height=6)
+pdf("plot/Geithner_MSPE_CLUSTER.pdf", width=6, height=6)
 matplot(lambda, MSPE, type="b", pch=20, lwd=1,
         main=expression("MSPE, "*lambda^{opt}*"= .1, computed on 30-day window"), col="steelblue",
         xlab=expression(lambda), ylab="MSPE")
@@ -154,6 +157,7 @@ sigma_cutoff = mean(sigma) # for later use: correction during Fisher test
 NPsol = estval$Wsol[1,,]
 colnames(NPsol) = rownames(X[d==0,])
 phiNP = apply((y[TestPeriod,d==1] - y[TestPeriod,d==0]%*%t(NPsol)),1,mean)
+phiNP_bc = phiNP - apply(bias(X0,X1,y[TestPeriod,],d,NPsol),1,mean)  # bias corrected
 
 sigma = sqrt(apply((X1 - X0%*%t(NPsol))^2,2,mean))
 sigma_cutoffNP = mean(sigma) 
@@ -165,16 +169,22 @@ print("mean nb. active control units"); mean(apply(NPsol>0,1,sum))
 
 ### 5. Fisher Test of No-Effect Assumption (C=0)
 set.seed(1207990)
-R = 5000 # Number of replications
+R = 20000 # Number of replications
 alpha = sqrt(3) # correction cut-off (see original paper)
 lambda.set = c(seq(0,0.1,.01),seq(.2,1.5,.1)) # sequence of lambdas to test
-ResultP = matrix(nrow=R, ncol=length(TestPeriod))
-ResultP_C = matrix(nrow=R, ncol=length(TestPeriod))
-ResultNP = matrix(nrow=R, ncol=length(TestPeriod))
-ResultNP_C = matrix(nrow=R, ncol=length(TestPeriod))
+
+comb <- function(x, ...) {
+  lapply(seq_along(x),
+         function(i) c(x[[i]], lapply(list(...), function(y) y[[i]])))
+}
+
+cores=detectCores()
+cl = makeCluster(cores[1]-1) #not to overload your computer
+registerDoParallel(cl)
+
+
 t_start = Sys.time()
-pb = txtProgressBar(style = 3)
-for(r in 1:R){
+Res_PAR <- foreach(r = 1:R,.packages='LowRankQP',.combine='comb', .multicombine=TRUE) %dopar% {
   dstar = sample(d)
   X0star = y[PreTreatPeriod,dstar==0]; X1star = y[PreTreatPeriod,dstar==1]
   
@@ -189,40 +199,52 @@ for(r in 1:R){
   Wsolstar = estval$Wsol[which(MSPE==min(MSPE)),,] # COLLECT W(lambda.opt)
   
   # Not corrected
-  ResultP[r,] = apply((y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(Wsolstar)),1,mean)
+  ResultP = apply((y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(Wsolstar)),1,mean)
   
-  # Corrected
+  # Corrected (as in original paper)
   sigmastar = sqrt(apply((X1star - X0star%*%t(Wsolstar))^2,2,mean))
   omegastar_C = rep(1,sum(d))
   omegastar_C[sigmastar>alpha*sigma_cutoff] = 0
   omegastar_C = omegastar_C/sum(omegastar_C)
-  ResultP_C[r,] = (y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(Wsolstar))%*%omegastar_C
+  ResultP_C = (y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(Wsolstar))%*%omegastar_C
+  
+  # Bias correction
+  ResultP_BC = ResultP - apply(bias(X0star,X1star,y[TestPeriod,],dstar,Wsolstar),1,mean)
   
   ### NON-PENALIZED, LAMBDA=0 ###
   NPsolstar = estval$Wsol[1,,]
   
   # Not corrected
-  ResultNP[r,] = apply((y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(NPsolstar)),1,mean)
+  ResultNP = apply((y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(NPsolstar)),1,mean)
   
   # Corrected
   sigmastar = sqrt(apply((X1star - X0star%*%t(NPsolstar))^2,2,mean))
   omegastar_C = rep(1,sum(d))
   omegastar_C[sigmastar>alpha*sigma_cutoffNP] = 0
   omegastar_C = omegastar_C/sum(omegastar_C)
-  ResultNP_C[r,] = (y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(NPsolstar))%*%omegastar_C
+  ResultNP_C = (y[TestPeriod,dstar==1] - y[TestPeriod,dstar==0]%*%t(NPsolstar))%*%omegastar_C
   
-  setTxtProgressBar(pb, r/R)
+  # Bias corrected
+  ResultNP_BC = ResultNP - apply(bias(X0star,X1star,y[TestPeriod,],dstar,NPsolstar),1,mean)
+  
+ list(list(ResultP),list(ResultP_C),list(ResultP_BC),list(ResultNP),list(ResultNP_C),list(ResultNP_BC))
 }
-close(pb)
 print(Sys.time()-t_start)
+stopCluster(cl)
 
+ResultP = t(matrix(unlist(Res_PAR[[1]]),ncol=R))
+ResultP_C = t(matrix(unlist(Res_PAR[[2]]),ncol=R))
+ResultP_BC = t(matrix(unlist(Res_PAR[[3]]),ncol=R))
+ResultNP = t(matrix(unlist(Res_PAR[[4]]),ncol=R))
+ResultNP_C = t(matrix(unlist(Res_PAR[[5]]),ncol=R))
+ResultNP_BC = t(matrix(unlist(Res_PAR[[6]]),ncol=R))
 
 ## 5.1 Tables
 
 # Penalized / Non-Corrected
 cumphiP = cumsum(phiP[16:length(phiP)])
 cumResultP = t(apply(ResultP[,16:length(phiP)],1,cumsum))
-cumphi_q = t(mapply(function(t) quantile(cumResultP[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResultP)))
+cumphi_q = t(mapply(function(t) quantile(cumResultP[,t], probs = c(.005,.025,.05,.95,.975,.995)), 1:ncol(cumResultP)))
 
 TableP = data.frame("Estimate"=cumphiP,"Q"=cumphi_q)
 
@@ -231,30 +253,44 @@ print("Event day 10"); print(TableP[11,])
 
 # Penalized / Corrected
 cumResult_C = t(apply(ResultP_C[,16:length(phiP)],1,cumsum))
-cumphi_qC = t(mapply(function(t) quantile(cumResult_C[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResult_C)))
+cumphi_qC = t(mapply(function(t) quantile(cumResult_C[,t], probs = c(.005,.025,.05,.95,.975,.995)), 1:ncol(cumResult_C)))
 
 TableP_Corrected = data.frame("Estimate"=cumphiP,"Q"=cumphi_qC)
+
+# Penalized / Bias Correction
+cumphiP_BC = cumsum(phiP_bc[16:length(phiP_bc)])
+cumResult_BC = t(apply(ResultP_BC[,16:length(phiP_bc)],1,cumsum))
+cumphi_qBC = t(mapply(function(t) quantile(cumResult_BC[,t], probs = c(.005,.025,.05,.95,.975,.995)), 1:ncol(cumResult_BC)))
+
+TableP_BC = data.frame("Estimate"=cumphiP_BC,"Q"=cumphi_qBC)
 
 # Non-Penalized / Non-Corrected
 cumphiNP = cumsum(phiNP[16:length(phiNP)])
 cumResultNP = t(apply(ResultNP[,16:length(phiNP)],1,cumsum))
-cumphi_q = t(mapply(function(t) quantile(cumResultNP[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResultNP)))
+cumphi_q = t(mapply(function(t) quantile(cumResultNP[,t], probs = c(.005,.025,.05,.95,.975,.995)), 1:ncol(cumResultNP)))
 
 TableNP = data.frame("Estimate"=cumphiNP,"Q"=cumphi_q)
 
 # Non-Penalized / Corrected
 cumResult_C = t(apply(ResultNP_C[,16:length(phiNP)],1,cumsum))
-cumphi_qC = t(mapply(function(t) quantile(cumResult_C[,t], probs = c(.005,.025,.975,.995)), 1:ncol(cumResult_C)))
+cumphi_qC = t(mapply(function(t) quantile(cumResult_C[,t], probs = c(.005,.025,.05,.95,.975,.995)), 1:ncol(cumResult_C)))
 
 TableNP_Corrected = data.frame("Estimate"=cumphiNP,"Q"=cumphi_qC)
 
-ToPrint = t(rbind(TableP[1,],TableP[11,],TableP_Corrected[1,],TableP_Corrected[11,],
-                  TableNP[1,],TableNP[11,],TableNP_Corrected[1,],TableNP_Corrected[11,]))
-colnames(ToPrint) = c("Penalized, NC, Day 0","Penalized, NC, Day 10","Penalized, C, Day 0","Penalized, C, Day 10",
-                      "Non-Penalized, NC, Day 0","Non-Penalized, NC, Day 10","Non-Penalized, C, Day 0","Non-Penalized, C, Day 10")
+# Non-Penalized / Bias Correction
+cumphiNP_BC = cumsum(phiNP_bc[16:length(phiNP_bc)])
+cumResultNP_BC = t(apply(ResultNP_BC[,16:length(phiNP_bc)],1,cumsum))
+cumphiNP_qBC = t(mapply(function(t) quantile(cumResultNP_BC[,t], probs = c(.005,.025,.05,.95,.975,.995)), 1:ncol(cumResultNP_BC)))
+
+TableNP_BC = data.frame("Estimate"=cumphiNP_BC,"Q"=cumphiNP_qBC)
+
+ToPrint = t(rbind(TableP[1,],TableP[11,],TableP_Corrected[1,],TableP_Corrected[11,],TableP_BC[1,],TableP_BC[11,],
+                  TableNP[1,],TableNP[11,],TableNP_Corrected[1,],TableNP_Corrected[11,],TableNP_BC[1,],TableNP_BC[11,]))
+colnames(ToPrint) = c("Penalized, NC, Day 0","Penalized, NC, Day 10","Penalized, C, Day 0","Penalized, C, Day 10","Penalized, BC, Day 0","Penalized, BC, Day 10",
+                      "Non-Penalized, NC, Day 0","Non-Penalized, NC, Day 10","Non-Penalized, C, Day 0","Non-Penalized, C, Day 10","Non-Penalized, BC, Day 0","Non-Penalized, BC, Day 10")
 stargazer(t(ToPrint))
 
-fileConn = file("plot/GeithnerResultTable.txt")
+fileConn = file("plot/GeithnerResultTable_CLUSTER.txt")
 writeLines(stargazer(t(ToPrint)), fileConn)
 close(fileConn)
 
@@ -265,7 +301,7 @@ phi_q = t(mapply(function(t) quantile(ResultP[,t], probs = c(.005,.025,.975,.995
 ATTdata = ts(cbind(phi_q[,1:2],phiP,phi_q[,3:4]),start=c(-15), freq=1)
 
 ### Figure 2: Geithner connected firms effect vs. random permutations (Currently in paper)
-pdf("plot/GeithnerAR_FisherTest.pdf", width=10, height=6)
+pdf("plot/GeithnerAR_FisherTest_CLUSTER.pdf", width=10, height=6)
 plot(ATTdata, plot.type="single",
      col=c("firebrick","firebrick","firebrick","firebrick","firebrick"), lwd=c(1,1,2,1,1),
      lty=c(3,4,1,4,3),xlab="Day", ylab="AR, in pp",
@@ -285,12 +321,12 @@ dev.off()
 
 
 ### 6. .95 Confidence interval for CAR[0] and CAR[10]
-GeiCI0 = conf.interval.Geithner(d,as.matrix(y[GeiNomDate,]),t(y[PreTreatPeriod,]),V,lambda=lambda.opt.MSPE,B=5000,alpha=.05)
-fileConn = file("plot/outputCI0.txt")
+GeiCI0 = conf.interval.Geithner(d,as.matrix(y[GeiNomDate,]),t(y[PreTreatPeriod,]),V,lambda=lambda.opt.MSPE,B=20000,alpha=.05)
+fileConn = file("plot/outputCI0_CLUSTER.txt")
 writeLines(paste(GeiCI0$c.int), fileConn)
 close(fileConn)
 
-GeiCI10 = conf.interval.Geithner(d,t(y[GeiNomDate:(GeiNomDate+10),]),t(y[PreTreatPeriod,]),V,lambda=lambda.opt.MSPE,B=5000,alpha=.05)
-fileConn = file("plot/outputCI10.txt")
+GeiCI10 = conf.interval.Geithner(d,t(y[GeiNomDate:(GeiNomDate+10),]),t(y[PreTreatPeriod,]),V,lambda=lambda.opt.MSPE,B=20000,alpha=.05)
+fileConn = file("plot/outputCI10_CLUSTER.txt")
 writeLines(paste(GeiCI10$c.int), fileConn)
 close(fileConn)

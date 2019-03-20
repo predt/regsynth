@@ -1,0 +1,9 @@
+main_huge
+                      RMSEindiv    RMSEatt     Bias     Sparsity
+                      _________    _______    ______    ________
+
+    PenSynth          1.9276       1.4659     1.3865    4.0310  
+    NoPenSynth        2.1004       1.7498     1.6874    6.6090  
+    PureSynth         2.9269       2.6191     2.5938    0.0000  
+    Matching          2.1798       1.4390     1.2953    0.0000  
+    OptMatching       1.9869       1.4955     1.4121    3.3600  

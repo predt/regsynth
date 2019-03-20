@@ -11,8 +11,7 @@
 #' 
 #' @seealso \code{\link{regsynth}}
 #' 
-#' @autor Jeremy LHour
-
+#' @author Jeremy LHour
 
 bias <- function(X0,X1,y,d,W){
   n1 = ncol(X1); n0 = ncol(X0)
