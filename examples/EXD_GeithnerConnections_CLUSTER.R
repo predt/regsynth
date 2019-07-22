@@ -179,7 +179,7 @@ comb <- function(x, ...) {
 }
 
 cores=detectCores()
-cl = makeCluster(cores[1]-1) #not to overload your computer
+cl = makeCluster(20) #not to overload your computer
 registerDoParallel(cl)
 
 

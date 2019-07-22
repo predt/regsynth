@@ -26,12 +26,13 @@ source("functions/regsynthpath.R")
 source("functions/TZero.R")
 source("functions/synthObj.R")
 
+set.seed(12071990)
 
 ### 0. Parameters
-R = 1000 # nb simulations
+R = 10000 # nb simulations
 n1 = 10 # nb treated
-n0 = 20 # nb controls
-p = 20
+n0 = 50 # nb controls
+p = 5
 
 ### DGP Setup
 ### Covariate variance matrix
@@ -47,7 +48,6 @@ for(j in 1:p){
   b[j] = 1*(-1)^(j) / j^2
 }
 
-set.seed(12071990)
 
 ### 1. Simulations
 
@@ -59,9 +59,9 @@ for(r in 1:R){
   # Simulate covariate
   
   # SETUP 1 
-  #X0 = matrix(2*sqrt(runif(n0))-1, nrow=1)
-  #X1 = matrix(runif(n1,min=-1,max=1), nrow=1)
-  #Y0 = rep(0,n0); Y1 = rep(1,n1)
+  X0 = matrix(2*sqrt(runif(n0))-1, nrow=1)
+  X1 = matrix(runif(n1,min=-1,max=1), nrow=1)
+  Y0 = rep(0,n0); Y1 = rep(1,n1)
   
   # SETUP 2
   #X = mvrnorm(n = n0+n1, mu=rep(0,p), Sigma)
@@ -75,9 +75,9 @@ for(r in 1:R){
   #Y0 = rep(0,n0); Y1 = rep(1,n1)
   
   # SETUP 3: Case of small common support
-  X0 = matrix(rbeta(n0,2,5), nrow=1)
-  X1 = matrix(rbeta(n1,2,5), nrow=1)
-  Y0 = rep(0,n0); Y1 = rep(1,n1)
+  #X0 = matrix(rbeta(n0,2,5), nrow=1)
+  #X1 = matrix(rbeta(n1,2,5), nrow=1)
+  #Y0 = rep(0,n0); Y1 = rep(1,n1)
   
   # Compute synthetic weights
   sol = regsynth(X0,X1,Y0,Y1,V=1,.1)
@@ -92,6 +92,16 @@ print(Sys.time()-t_start)
 
 
 ### 2. Features of the distribution
+
+### Covariance of the squares
+print("Empirical covariances of squares:")
+AA = cov(Results^2, method="pearson")
+summary(AA[upper.tri(AA)])
+
+### Correlation
+print("Empirical correlations:")
+BB = cor(Results)
+summary(BB[upper.tri(BB)])
 
 ### Second moment
 print("Empirical Second moments:")
@@ -110,9 +120,6 @@ print( (n1^2/n0)*((n0-1)/n0) )
 print("Empirical variance of the square:")
 print(apply(Results^2,2,var))
 
-### Correlation of the squares
-print("Empirical correlations of squares:")
-cor(Results^2)
 
 ### Probability that S_1 is an integer
 cumuu = vector(length=n0)

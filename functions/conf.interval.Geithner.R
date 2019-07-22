@@ -10,7 +10,7 @@
 #' 
 #' @param d is a vector of dimension n (treatment indicator)
 #' @param X is a matrix of dimension n x p
-#' @param y is a vector of dimension n x k (outcomes)
+#' @param y is a matrix of dimension n x k (outcomes)
 #' @param V is a p x p matrix of weights
 #' @param lambda is a positive penalty level
 #' @param B is the number of draws for computing p-values
